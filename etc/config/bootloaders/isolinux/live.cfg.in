@@ -5,7 +5,7 @@ MENU AUTOBOOT Booting ubuntu sway live disk in # seconds
 timeout 50
 
 label live-@FLAVOUR@
-	menu label ^Start Ubuntu Sway
+	menu label ^Start Ubuntu Sway Remix
 	menu default
 	linux /casper/vmlinuz
 	initrd /casper/initrd.lz
@@ -14,7 +14,7 @@ label live-@FLAVOUR@
 MENU SEPARATOR
 
 label live-failsafe
-	menu label Start Ubuntu Sway (Safe Graphics)
+	menu label Start Ubuntu Sway Remix (Safe Graphics)
 	set gfxpayload=keep
 	linux /casper/vmlinuz
 	initrd /casper/initrd.lz
