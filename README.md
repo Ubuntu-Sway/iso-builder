@@ -10,7 +10,7 @@ The following example uses Docker and assumes you have Docker correctly installe
 
 Clone this project & cd into it:
 
-    git clone https://github.com/UbuntuDDE/iso-builder && cd iso-builder
+    git clone https://github.com/Ubuntu-Sway/iso-builder && cd iso-builder
 
 Configure the channel in the etc/terraform.conf (unstable, stable).
 
