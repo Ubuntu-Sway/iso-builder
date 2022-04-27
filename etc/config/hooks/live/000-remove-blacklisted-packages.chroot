@@ -18,7 +18,7 @@ echo "P: Begin executing remove-blacklisted-packages chroot hook..."
 #apt-get autoremove --purge -f -q -y bzr
 
 apt-get autoremove --purge -f -q -y metacity unity-greeter unity-settings-daemon unity-control-center
-apt-get autoremove --purge -f -q -y gdm3 gnome-shell ubuntu-desktop mutter xiterm+thai gnome-control-center language-selector-gnome yelp gnome-font-viewer gnome-software gnome-software-common gnome-software-plugin-snap snapd
+apt-get autoremove --purge -f -q -y gdm3 gnome-shell ubuntu-desktop mutter xiterm+thai gnome-control-center language-selector-gnome yelp gnome-font-viewer gnome-software gnome-software-common gnome-software-plugin-snap plasma-framework libkf5plasma5
 rm -R ../ubuntu-seeds ../platform
 rm -rf /etc/xdg/autostart/nm-applet.desktop
 cp /etc/rc.local /etc/rc.local.orig

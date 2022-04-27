@@ -21,7 +21,7 @@ lb config noauto \
     --parent-archive-areas "main restricted universe multiverse" \
     --linux-packages linux-image \
     --linux-flavours "$KERNEL_FLAVORS" \
-    --bootappend-live "boot=casper" \
+    --bootappend-live "boot=casper username=ubuntusway" \
     --mirror-bootstrap "$MIRROR_URL" \
     --parent-mirror-bootstrap "$MIRROR_URL" \
     --mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
