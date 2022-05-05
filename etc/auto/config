@@ -21,7 +21,7 @@ lb config noauto \
     --parent-archive-areas "main restricted universe multiverse" \
     --linux-packages linux-image \
     --linux-flavours "$KERNEL_FLAVORS" \
-    --bootappend-live "boot=casper username=ubuntusway" \
+    --bootappend-live "boot=casper" \
     --mirror-bootstrap "$MIRROR_URL" \
     --parent-mirror-bootstrap "$MIRROR_URL" \
     --mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
@@ -29,8 +29,8 @@ lb config noauto \
     --mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
     --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
     --apt-source-archives false \
-    --mirror-binary "mirror://mirrors.ubuntu.com/mirrors.txt" \
-    --parent-mirror-binary "mirror://mirrors.ubuntu.com/mirrors.txt" \
+    --mirror-binary "$MIRROR_URL" \
+    --parent-mirror-binary "$MIRROR_URL" \
     --keyring-packages ubuntu-keyring \
     --apt-options "--yes --option Acquire::Retries=5 --option Acquire::http::Timeout=100" \
     --cache-packages false \
