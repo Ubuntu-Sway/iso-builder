@@ -24,7 +24,7 @@ echo -e "
 "
 
 apt-get update
-apt-get install -y binutils zstd
+apt-get install -y binutils zstd live-build
 dpkg -i ./debs/*.deb
 
 build () {
