@@ -72,7 +72,7 @@ build () {
     YYYYMMDD="$(date +%Y%m%d%H%M)"
     OUTPUT_DIR="$BASE_DIR/builds/$BUILD_ARCH"
     mkdir -p "$OUTPUT_DIR"
-    FNAME="ubuntusway-$VERSION-$BUILD_ARCH-$YYYYMMDD-$OUTPUT_SUFFIX"
+    FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX"
     mv "$BASE_DIR/tmp/$BUILD_ARCH/live-image-$BUILD_ARCH.hybrid.iso" "$OUTPUT_DIR/${FNAME}.iso"
 
     md5sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.md5.txt"

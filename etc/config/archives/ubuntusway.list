@@ -1,0 +1,2 @@
+deb https://ppa.launchpadcontent.net/ubuntusway-dev/@CHANNEL/ubuntu @BASECODENAME main
+deb-src https://ppa.launchpadcontent.net/ubuntusway-dev/@CHANNEL/ubuntu @BASECODENAME main

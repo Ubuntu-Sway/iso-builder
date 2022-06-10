@@ -5,11 +5,14 @@ intel-microcode
 iucode-tool
 setserial
 user-setup
+
 efibootmgr
-grub-efi
 secureboot-db
+
+#if ARCHITECTURES amd64
 grub-efi-amd64
 grub-efi-amd64-bin
 grub-efi-amd64-signed
 shim
 shim-signed
+#endif
