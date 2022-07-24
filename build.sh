@@ -72,7 +72,13 @@ build () {
     YYYYMMDD="$(date +%Y%m%d%H%M)"
     OUTPUT_DIR="$BASE_DIR/builds/$BUILD_ARCH"
     mkdir -p "$OUTPUT_DIR"
-    FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX"
+    if [ "$CHANNEL" == dev ]; then
+      FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX-$ARCH"
+    elif [ "$CHANNEL" == stable ]; then
+      FNAME="ubuntusway-$VERSION-$OUTPUT_SUFFIX-$ARCH"
+    else
+      echo -e "Error: invalid channel name!"
+    fi
     mv "$BASE_DIR/tmp/$BUILD_ARCH/live-image-$BUILD_ARCH.hybrid.iso" "$OUTPUT_DIR/${FNAME}.iso"
 
     md5sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.md5.txt"
