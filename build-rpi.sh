@@ -43,6 +43,8 @@ cp -r "${rootdir}"/rpi/rootfs/writable/* ubuntusway-${architecture}/
 cat << EOF > ubuntusway-$architecture/etc/apt/sources.list
 deb http://ports.ubuntu.com/ubuntu-ports $codename main restricted universe multiverse
 deb http://ports.ubuntu.com/ubuntu-ports $codename-updates main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports $codename-security main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports $codename-backports main restricted universe multiverse
 EOF
 
 # Copy in the ubuntusway PPAs/keys/apt config
