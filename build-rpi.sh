@@ -71,9 +71,9 @@ EOF
 # Configure mount points
 cat << EOF > ubuntusway-${architecture}/etc/fstab
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
-proc /proc proc nodev,noexec,nosuid 0  0
-LABEL=writable    /     ext4    defaults,noatime    0 0
-LABEL=system-boot       /boot/firmware  vfat    defaults        0       1
+proc               /proc           proc  nodev,noexec,nosuid 0  0
+LABEL=writable     /               ext4  discard,noatime     0  1
+LABEL=system-boot  /boot/firmware  vfat  defaults            0  1
 EOF
 
 export LC_ALL=C
@@ -158,6 +158,52 @@ EOF
 
 chmod +x ubuntusway-$architecture/user
 LANG=C chroot ubuntusway-$architecture /user
+
+# Creating swapfile service
+
+# Adds lz4 and z3fold modules to initramfs.
+# - https://ubuntu.com/blog/how-low-can-you-go-running-ubuntu-desktop-on-a-2gb-raspberry-pi-4
+echo lz4    >> ubuntusway-$architecture/etc/initramfs-tools/modules
+echo z3fold >> ubuntusway-$architecture/etc/initramfs-tools/modules
+
+mkdir -p ubuntusway-$architecture/usr/lib/systemd/system/swap.target.wants
+
+cat <<EOF >> ubuntusway-$architecture/usr/lib/systemd/system/mkswap.service
+[Unit]
+Description=Create the default swapfile
+DefaultDependencies=no
+Requires=local-fs.target
+After=local-fs.target
+Before=swapfile.swap
+ConditionPathExists=!/swapfile
+
+[Service]
+Type=oneshot
+ExecStartPre=fallocate -l 1GiB /swapfile
+ExecStartPre=chmod 600 /swapfile
+ExecStart=mkswap /swapfile
+
+[Install]
+WantedBy=swap.target
+EOF
+
+cat <<EOF >> ubuntusway-$architecture/usr/lib/systemd/system/swapfile.swap
+[Unit]
+Description=The default swapfile
+
+[Swap]
+What=/swapfile
+EOF
+
+cat <<EOF >> ubuntusway-$architecture/enable_zswap
+#!/bin/bash
+ln -s /usr/lib/systemd/system/mkswap.service /usr/lib/systemd/system/swap.target.wants/mkswap.service
+ln -s /usr/lib/systemd/system/swapfile.swap /usr/lib/systemd/system/swap.target.wants/swapfile.swap
+rm -f enable_zswap
+EOF
+
+chmod +x ubuntusway-$architecture/enable_zswap
+LANG=C chroot ubuntusway-$architecture /enable_zswap
 
 # Calculate the space to create the image.
 root_size="$(du -s -B1K ubuntusway-$architecture | cut -f1)"
