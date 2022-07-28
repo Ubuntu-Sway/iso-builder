@@ -191,7 +191,7 @@ cat <<EOF >> ubuntusway-$architecture/enable_zswap
 #!/bin/bash
 ln -s /usr/lib/systemd/system/mkswap.service /usr/lib/systemd/system/swap.target.wants/mkswap.service
 ln -s /usr/lib/systemd/system/swapfile.swap /usr/lib/systemd/system/swap.target.wants/swapfile.swap
-update-initrafms -u
+update-initramfs -u
 rm -f enable_zswap
 EOF
 
