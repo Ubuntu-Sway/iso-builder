@@ -139,17 +139,6 @@ install -m 644 -o root -g root "${rootdir}/rpi/files/resizerootfs.service" "ubun
 mkdir -p "ubuntusway-$architecture/etc/systemd/system/systemd-remount-fs.service.requires/"
 ln -s /etc/systemd/system/resizerootfs.service "ubuntusway-$architecture/etc/systemd/system/systemd-remount-fs.service.requires/resizerootfs.service"
 
-
-# Support for kernel updates on the Pi 400
-cat << EOF >> ubuntusway-$architecture/etc/flash-kernel/db
-Machine: Raspberry Pi 400 Rev 1.0
-Method: pi
-Kernel-Flavors: raspi raspi2
-DTB-Id: bcm2711-rpi-4-b.dtb
-U-Boot-Script-Name: bootscr.rpi
-Required-Packages: u-boot-tools
-EOF
-
 # Create default user (WARNING! This is a temporary solution, until postinstall user setup is created)
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
