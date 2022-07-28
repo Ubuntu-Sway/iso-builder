@@ -87,17 +87,17 @@ mount -t proc proc ubuntusway-$architecture/proc
 mount -o bind /dev/ ubuntusway-$architecture/dev/
 mount -o bind /dev/pts ubuntusway-$architecture/dev/pts
 
-# Make a third stage that installs all of the metapackages
-cat << EOF > ubuntusway-$architecture/third-stage
+# Make a desktop stage that installs all of the metapackages
+cat << EOF > ubuntusway-$architecture/desktop
 #!/bin/bash
 apt-get update
-apt-get --yes upgrade
-apt-get --yes install $packages
-rm -f /third-stage
+apt-get -y upgrade
+apt-get -y install $packages
+rm -f /desktop
 EOF
 
-chmod +x ubuntusway-$architecture/third-stage
-LANG=C chroot ubuntusway-$architecture /third-stage
+chmod +x ubuntusway-$architecture/desktop
+LANG=C chroot ubuntusway-$architecture /desktop
 
 # Install Raspberry Pi specific packages
 cat << EOF > ubuntusway-$architecture/hardware
@@ -105,8 +105,10 @@ cat << EOF > ubuntusway-$architecture/hardware
 # Make a dummy folder for the boot partition so packages install properly,
 # we'll recreate it on the actual partition later
 mkdir -p /boot/firmware
-apt-get --yes install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
+apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
 pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin
+apt-get -y install --no-install-recommends raspi-config
+systemctl disable raspi-config
 # Symlink to workaround bug with Bluetooth driver looking in the wrong place for firmware
 ln -s /lib/firmware /etc/firmware
 rm -rf /boot/firmware
@@ -200,6 +202,7 @@ cat <<EOF >> ubuntusway-$architecture/enable_zswap
 #!/bin/bash
 ln -s /usr/lib/systemd/system/mkswap.service /usr/lib/systemd/system/swap.target.wants/mkswap.service
 ln -s /usr/lib/systemd/system/swapfile.swap /usr/lib/systemd/system/swap.target.wants/swapfile.swap
+update-initrafms -u
 rm -f enable_zswap
 EOF
 
