@@ -99,7 +99,6 @@ EOF
 chmod +x ubuntusway-$architecture/third-stage
 LANG=C chroot ubuntusway-$architecture /third-stage
 
-
 # Install Raspberry Pi specific packages
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
@@ -246,25 +245,27 @@ mount -o bind "${basedir}/bootp/" ubuntusway-$architecture/boot/firmware
 # Copy Raspberry Pi specific files
 cp -r "${rootdir}"/rpi/rootfs/system-boot/* ubuntusway-${architecture}/boot/firmware/
 
+NEW_KERNEL=$(ls -1 ubuntusway-$architecture/boot/vmlinuz-* | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
+    if [ -z "${NEW_KERNEL}" ]; then
+        echo "ERROR! Could not detect the new kernel version"
+        exit 1
+    fi
+echo "Kernel: ${NEW_KERNEL}"
+
 # Copy kernels and firmware to boot partition
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
-cp /boot/vmlinuz /boot/firmware/vmlinuz
-cp /boot/initrd.img /boot/firmware/initrd.img
+cp /boot/vmlinuz-${NEW_KERNEL} /boot/firmware/vmlinuz
+cp /boot/initrd.img-${NEW_KERNEL} /boot/firmware/initrd.img
 # Copy device-tree blobs to fat32 partition
-cp -r /lib/firmware/*-raspi/device-tree/broadcom/* /boot/firmware/
-cp -r /lib/firmware/*-raspi/device-tree/overlays /boot/firmware/
+cp -r /lib/firmware/${NEW_KERNEL}/device-tree/broadcom/* /boot/firmware/
+cp -r /lib/firmware/${NEW_KERNEL}/device-tree/overlays /boot/firmware/
+cp -v /lib/linux-firmware-raspi/* /boot/firmware/
 rm -f hardware
 EOF
 
 chmod +x ubuntusway-$architecture/hardware
 LANG=C chroot ubuntusway-$architecture /hardware
-
-# Grab some updated firmware from the Raspberry Pi foundation
-git clone -b '1.20220331' --single-branch --depth 1 https://github.com/raspberrypi/firmware raspi-firmware
-cp raspi-firmware/boot/*.elf "${basedir}/bootp/"
-cp raspi-firmware/boot/*.dat "${basedir}/bootp/"
-cp raspi-firmware/boot/bootcode.bin "${basedir}/bootp/"
 
 umount ubuntusway-$architecture/dev/pts
 umount ubuntusway-$architecture/dev/
