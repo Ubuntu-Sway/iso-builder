@@ -98,16 +98,10 @@ LANG=C chroot ubuntusway-$architecture /desktop
 # Install Raspberry Pi specific packages
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
-# Make a dummy folder for the boot partition so packages install properly,
-# we'll recreate it on the actual partition later
-mkdir -p /boot/firmware
 apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
 pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
-# Symlink to workaround bug with Bluetooth driver looking in the wrong place for firmware
-ln -s /lib/firmware /etc/firmware
-rm -rf /boot/firmware
 rm -f hardware
 EOF
 
