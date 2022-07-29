@@ -243,11 +243,11 @@ echo "Kernel: ${NEW_KERNEL}"
 # Copy kernels and firmware to boot partition
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
-cp /boot/vmlinuz-${NEW_KERNEL} /boot/firmware/vmlinuz
-cp /boot/initrd.img-${NEW_KERNEL} /boot/firmware/initrd.img
+cp -av /boot/vmlinuz-${NEW_KERNEL} /boot/firmware/vmlinuz
+cp -av /boot/initrd.img-${NEW_KERNEL} /boot/firmware/initrd.img
 # Copy device-tree blobs to fat32 partition
-cp -r /lib/firmware/${NEW_KERNEL}/device-tree/broadcom/* /boot/firmware/
-cp -r /lib/firmware/${NEW_KERNEL}/device-tree/overlays /boot/firmware/
+cp -v /lib/firmware/${NEW_KERNEL}/device-tree/broadcom/* /boot/firmware/
+cp -rv /lib/firmware/${NEW_KERNEL}/device-tree/overlays /boot/firmware/
 cp -v /lib/linux-firmware-raspi/* /boot/firmware/
 rm -f hardware
 EOF
