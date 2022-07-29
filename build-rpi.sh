@@ -224,8 +224,8 @@ bootp=${device}p1
 rootp=${device}p2
 
 # Create file systems
-mkfs.vfat -n system-boot "$bootp"
-mkfs.ext4 -L writable "$rootp"
+mkfs.vfat -n system-boot -S 512 -s 16 -v "$bootp"
+mkfs.ext4 -L writable -m 0 "$rootp"
 
 # Create the dirs for the partitions and mount them
 mkdir -p "${basedir}/bootp" "${basedir}/root"
