@@ -12,9 +12,6 @@ update-binfmts --enable
 rootdir=$(pwd)
 basedir=$(pwd)/artifacts/ubuntusway-rpi
 
-# Free space on rootfs in MiB
-free_space="500"
-
 export packages="ubuntusway-minimal ubuntusway-desktop ubuntusway-standard"
 export architecture="arm64"
 export codename="jammy"
@@ -198,22 +195,20 @@ EOF
 chmod +x ubuntusway-$architecture/enable_zswap
 LANG=C chroot ubuntusway-$architecture /enable_zswap
 
-# Calculate the space to create the image.
-root_size="$(du -s -B1K ubuntusway-$architecture | cut -f1)"
-raw_size="$(($((free_space*1024))+root_size))"
+# Calculate image size accounting for boot parition + 5%
+boot_size="256"
+root_size="$(du -cs --block-size=MB ubuntusway-$architecture | tail -n1 | cut -d'M' -f1)"
+pad_size="$(( (root_size / 10) / 2 ))"
+raw_size="$((boot_size + root_size + pad_size))"
 
 # Create the disk and partition it
 echo "Creating image file"
 
-# Sometimes fallocate fails if the filesystem or location doesn't support it, fallback to slower dd in this case
-if ! fallocate -l "$(echo ${raw_size}Ki | numfmt --from=iec-i --to=si --format=%.1f)" "${basedir}/${imagename}.img"
-then
-    dd if=/dev/zero of="${basedir}/${imagename}.img" bs=1024 count=${raw_size}
-fi
+fallocate -l "${raw_size}"M "${basedir}/${imagename}.img"
 
 parted "${imagename}.img" -s -- mklabel msdos
-parted "${imagename}.img" -s -a optimal -- mkpart primary fat32 1 256
-parted "${imagename}.img" -s -a optimal -- mkpart primary ext4 256 100%
+parted "${imagename}.img" -s -a optimal -- mkpart primary fat32 1 "${boot_size}MB"
+parted "${imagename}.img" -s -a optimal -- mkpart primary ext4 "${boot_size}MB" 100%
 parted "${imagename}.img" -s set 1 boot on
 
 # Set the partition variables
