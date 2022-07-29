@@ -211,9 +211,10 @@ then
     dd if=/dev/zero of="${basedir}/${imagename}.img" bs=1024 count=${raw_size}
 fi
 
-parted "${imagename}.img" --script -- mklabel msdos
-parted "${imagename}.img" --script -- mkpart primary fat32 0 256
-parted "${imagename}.img" --script -- mkpart primary ext4 256 -1
+parted "${imagename}.img" -s -- mklabel msdos
+parted "${imagename}.img" -s -a optimal -- mkpart primary fat32 1 256
+parted "${imagename}.img" -s -a optimal -- mkpart primary ext4 256 100%
+parted "${imagename}.img" -s set 1 boot on
 
 # Set the partition variables
 loopdevice=$(losetup -f --show "${basedir}/${imagename}.img")
