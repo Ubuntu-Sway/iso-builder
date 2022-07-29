@@ -70,7 +70,6 @@ EOF
 # Configure mount points
 cat << EOF > ubuntusway-${architecture}/etc/fstab
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
-proc               /proc           proc  nodev,noexec,nosuid 0  0
 LABEL=writable     /               ext4  discard,noatime     0  1
 LABEL=system-boot  /boot/firmware  vfat  defaults            0  1
 EOF
