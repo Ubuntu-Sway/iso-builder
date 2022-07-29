@@ -109,10 +109,10 @@ chmod +x ubuntusway-$architecture/hardware
 LANG=C chroot ubuntusway-$architecture /hardware
 
 # Copy in any file overrides
-cp -r "${rootdir}"/etc/config/includes.chroot/* ubuntusway-$architecture/
+cp -rv "${rootdir}"/etc/config/includes.chroot/* ubuntusway-$architecture/
 
 mkdir ubuntusway-$architecture/hooks
-cp "${rootdir}"/etc/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
+cp -v "${rootdir}"/etc/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
 
 hook_files="ubuntusway-$architecture/hooks/*"
 for f in $hook_files
@@ -224,7 +224,7 @@ mkdir -p ubuntusway-$architecture/boot/firmware
 mount -o bind "${basedir}/bootp/" ubuntusway-$architecture/boot/firmware
 
 # Copy Raspberry Pi specific files
-cp -r "${rootdir}"/rpi/rootfs/system-boot/* ubuntusway-${architecture}/boot/firmware/
+cp -rv "${rootdir}"/rpi/rootfs/system-boot/* ubuntusway-${architecture}/boot/firmware/
 
 NEW_KERNEL=$(ls -1 ubuntusway-$architecture/boot/vmlinuz-* | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
     if [ -z "${NEW_KERNEL}" ]; then
