@@ -99,7 +99,7 @@ LANG=C chroot ubuntusway-$architecture /desktop
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
 apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
-pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin
+pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
 rm -f hardware
