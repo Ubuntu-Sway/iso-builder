@@ -28,13 +28,18 @@ mkdir -p "${basedir}"
 cd "${basedir}"
 
 # Bootstrap an ubuntu minimal system
-debootstrap --foreign --arch $architecture $codename ubuntusway-$architecture http://ports.ubuntu.com/ubuntu-ports
+debootstrap \
+    --arch $architecture \
+    --components=main,restricted,universe,multiverse \
+    --foreign \
+    --include=cloud-guest-utils \
+    $codename ubuntusway-$architecture http://ports.ubuntu.com/ubuntu-ports
 
 # Add the QEMU emulator for running ARM executables
 cp /usr/bin/qemu-arm-static ubuntusway-$architecture/usr/bin/
 
 # Run the second stage of the bootstrap in QEMU
-LANG=C chroot ubuntusway-$architecture /debootstrap/debootstrap --second-stage
+LANG=C.UTF-8 chroot ubuntusway-$architecture /debootstrap/debootstrap --second-stage
 
 # Copy Raspberry Pi specific files
 cp -r "${rootdir}"/rpi/rootfs/writable/* ubuntusway-${architecture}/
@@ -77,7 +82,7 @@ LABEL=writable     /               ext4  discard,noatime,x-systemd.growfs     0 
 LABEL=system-boot  /boot/firmware  vfat  defaults                             0  1
 EOF
 
-export LC_ALL=C
+export LC_ALL=C.UTF-8
 export DEBIAN_FRONTEND=noninteractive
 # Config to stop flash-kernel trying to detect the hardware in chroot
 export FK_MACHINE=none
@@ -96,7 +101,7 @@ rm -f /desktop
 EOF
 
 chmod +x ubuntusway-$architecture/desktop
-LANG=C chroot ubuntusway-$architecture /desktop
+LANG=C.UTF-8 chroot ubuntusway-$architecture /desktop
 
 # Install Raspberry Pi specific packages
 cat << EOF > ubuntusway-$architecture/hardware
@@ -112,7 +117,7 @@ rm -f hardware
 EOF
 
 chmod +x ubuntusway-$architecture/hardware
-LANG=C chroot ubuntusway-$architecture /hardware
+LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
 # Copy in any file overrides
 cp -rv "${rootdir}"/etc/config/includes.chroot/* ubuntusway-$architecture/
@@ -124,7 +129,7 @@ hook_files="ubuntusway-$architecture/hooks/*"
 for f in $hook_files
 do
     base=$(basename "${f}")
-    LANG=C chroot ubuntusway-$architecture "/hooks/${base}"
+    LANG=C.UTF-8 chroot ubuntusway-$architecture "/hooks/${base}"
 done
 
 rm -r "ubuntusway-$architecture/hooks"
@@ -139,7 +144,7 @@ rm -f user
 EOF
 
 chmod +x ubuntusway-$architecture/user
-LANG=C chroot ubuntusway-$architecture /user
+LANG=C.UTF-8 chroot ubuntusway-$architecture /user
 
 # Creating swapfile service
 
@@ -186,7 +191,7 @@ rm -f enable_zswap
 EOF
 
 chmod +x ubuntusway-$architecture/enable_zswap
-LANG=C chroot ubuntusway-$architecture /enable_zswap
+LANG=C.UTF-8 chroot ubuntusway-$architecture /enable_zswap
 
 # Calculate image size accounting for boot parition + 5%
 boot_size="256"
@@ -246,7 +251,7 @@ rm -f hardware
 EOF
 
 chmod +x ubuntusway-$architecture/hardware
-LANG=C chroot ubuntusway-$architecture /hardware
+LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
 umount ubuntusway-$architecture/dev/pts
 umount ubuntusway-$architecture/dev/
