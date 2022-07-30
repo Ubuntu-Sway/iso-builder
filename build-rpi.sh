@@ -4,7 +4,10 @@ set -e
 
 # Install dependencies in host system
 apt-get update
-apt-get install -y --no-install-recommends ubuntu-keyring ca-certificates debootstrap git qemu-user-static qemu-utils qemu-system-arm binfmt-support parted kpartx rsync dosfstools xz-utils
+apt-get install -y --no-install-recommends \
+ubuntu-keyring ca-certificates debootstrap git \
+qemu-user-static qemu-utils qemu-system-arm binfmt-support \
+parted kpartx rsync dosfstools xz-utils
 
 # Make sure cross-running ARM ELF executables is enabled
 update-binfmts --enable
@@ -70,8 +73,8 @@ EOF
 # Configure mount points
 cat << EOF > ubuntusway-${architecture}/etc/fstab
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
-LABEL=writable     /               ext4  discard,noatime     0  1
-LABEL=system-boot  /boot/firmware  vfat  defaults            0  1
+LABEL=writable     /               ext4  discard,noatime,x-systemd.growfs     0  1
+LABEL=system-boot  /boot/firmware  vfat  defaults                             0  1
 EOF
 
 export LC_ALL=C
@@ -102,6 +105,9 @@ apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-ra
 pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
+# Install first boot filesystem expansion
+apt-get -y install --no-install-recommends cloud-guest-utils \
+cloud-initramfs-growroot
 rm -f hardware
 EOF
 
@@ -122,12 +128,6 @@ do
 done
 
 rm -r "ubuntusway-$architecture/hooks"
-
-# Add a oneshot service to grow the rootfs on first boot
-install -m 755 -o root -g root "${rootdir}/rpi/files/resizerootfs" "ubuntusway-$architecture/usr/sbin/resizerootfs"
-install -m 644 -o root -g root "${rootdir}/rpi/files/resizerootfs.service" "ubuntusway-$architecture/etc/systemd/system"
-mkdir -p "ubuntusway-$architecture/etc/systemd/system/systemd-remount-fs.service.requires/"
-ln -s /etc/systemd/system/resizerootfs.service "ubuntusway-$architecture/etc/systemd/system/systemd-remount-fs.service.requires/resizerootfs.service"
 
 # Create default user (WARNING! This is a temporary solution, until postinstall user setup is created)
 cat <<EOF >> ubuntusway-$architecture/user
