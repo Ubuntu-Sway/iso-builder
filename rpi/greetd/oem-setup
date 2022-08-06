@@ -1,0 +1,31 @@
+# global variables
+include /etc/sway/variables
+
+# include theme specific definitions
+include $theme/variables
+
+# enable default input/output devices
+include /etc/sway/inputs/*.conf
+include /etc/sway/outputs/*.conf
+
+# run global sway scripts
+include /etc/sway/config.d/*.conf
+
+# enable idle mode
+exec {
+  $idle
+}
+
+# start calamares if available, otherwise start the greeter
+for_window [app_id="io.calamares.calamares"] floating enable
+
+exec {
+  '[ -x "$(command -v calamares)" ] && sudo -E calamares -d -style Fusion || swaymsg exit'
+}
+
+# offer shutdown options
+bindsym $mod+Shift+e exec $shutdown --layout /etc/greetd/wlogout --css /etc/greetd/style.css
+
+# capture PowerOff key
+bindsym XF86PowerOff exec $shutdown --layout /etc/greetd/wlogout --css /etc/greetd/style.css
+

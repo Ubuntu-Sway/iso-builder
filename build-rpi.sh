@@ -120,7 +120,10 @@ chmod +x ubuntusway-$architecture/hardware
 LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
 # Copy in any file overrides
-cp -rv "${rootdir}"/etc/config/includes.chroot/* ubuntusway-$architecture/
+cp -rv "${rootdir}"/etc/config/includes.chroot/etc/apt/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/etc/config/includes.chroot/etc/netplan/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/etc/config/includes.chroot/usr ubuntusway-$architecture/
+cp -rv "${rootdir}"/rpi/greetd/* ubuntusway-${architecture}/etc/greetd/
 
 mkdir ubuntusway-$architecture/hooks
 cp -v "${rootdir}"/etc/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
