@@ -134,12 +134,14 @@ done
 
 rm -r "ubuntusway-$architecture/hooks"
 
-# Create default user (WARNING! This is a temporary solution, until postinstall user setup is created)
+# Create OEM user
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
-adduser --disabled-password --gecos "" ubuntu
-echo "ubuntu:ubuntusway" | chpasswd
-usermod -a -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,input,netdev ubuntu
+DATE=$(date +%m%H%M%S)
+PASSWD=$(mkpasswd -m sha-512 oem "${DATE}")
+addgroup --gid 29999 oem
+adduser --gecos "OEM Configuration (temporary user)" --add_extra_groups --disabled-password --gid 29999 --uid 29999 oem
+usermod -a -G adm,sudo -p "${PASSWD}" oem
 rm -f user
 EOF
 
