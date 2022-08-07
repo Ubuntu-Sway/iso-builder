@@ -140,6 +140,7 @@ rm -r "ubuntusway-$architecture/hooks"
 # Create OEM user
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
+apt-get -y install calamares-arm-oem
 DATE=$(date +%m%H%M%S)
 PASSWD=$(mkpasswd -m sha-512 oem "${DATE}")
 addgroup --gid 29999 oem
