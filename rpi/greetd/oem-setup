@@ -8,9 +8,6 @@ include $theme/variables
 include /etc/sway/inputs/*.conf
 include /etc/sway/outputs/*.conf
 
-# run global sway scripts
-include /etc/sway/config.d/*.conf
-
 # enable idle mode
 exec {
   $idle
