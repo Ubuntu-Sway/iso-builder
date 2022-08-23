@@ -45,7 +45,7 @@ lb config noauto \
     --zsync false \
     --security true \
     --updates true \
-    --debootstrap-options "--exclude=pinephone-tweaks,mobile-tweaks-common,librem5-tweaks,pinetab-tweaks" \
+    --debootstrap-options "--include=ca-certificates --variant=minbase" \
     "${@}"
 
 # replace channel and suite

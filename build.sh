@@ -27,6 +27,8 @@ apt-get update
 apt-get install -y binutils zstd live-build
 dpkg -i ./debs/*.deb
 
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/kinetic
+
 build () {
   BUILD_ARCH="$1"
 
