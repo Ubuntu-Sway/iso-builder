@@ -8,11 +8,6 @@ include $theme/variables
 include /etc/sway/inputs/*.conf
 include /etc/sway/outputs/*.conf
 
-# enable idle mode
-exec {
-  $idle
-}
-
 # start calamares if available, otherwise start the greeter
 for_window [app_id="io.calamares.calamares"] floating enable
 
