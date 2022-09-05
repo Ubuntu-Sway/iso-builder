@@ -120,7 +120,10 @@ chmod +x ubuntusway-$architecture/hardware
 LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
 # Copy in any file overrides
-cp -rv "${rootdir}"/etc/config/includes.chroot/* ubuntusway-$architecture/
+cp -rv "${rootdir}"/etc/config/includes.chroot/etc/apt/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/etc/config/includes.chroot/etc/netplan/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/etc/config/includes.chroot/usr ubuntusway-$architecture/
+cp -rv "${rootdir}"/rpi/greetd/* ubuntusway-${architecture}/etc/greetd/
 
 mkdir ubuntusway-$architecture/hooks
 cp -v "${rootdir}"/etc/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
@@ -134,12 +137,16 @@ done
 
 rm -r "ubuntusway-$architecture/hooks"
 
-# Create default user (WARNING! This is a temporary solution, until postinstall user setup is created)
+# Create OEM user
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
-adduser --disabled-password --gecos "" ubuntu
-echo "ubuntu:ubuntusway" | chpasswd
-usermod -a -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,input,netdev ubuntu
+apt-get update
+apt-get -y install calamares-arm-oem
+DATE=$(date +%m%H%M%S)
+PASSWD=$(mkpasswd -m sha-512 oem "${DATE}")
+addgroup --gid 29999 oem
+adduser --gecos "OEM Configuration (temporary user)" --add_extra_groups --disabled-password --gid 29999 --uid 29999 oem
+usermod -a -G adm,sudo -p "${PASSWD}" oem
 rm -f user
 EOF
 
