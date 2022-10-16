@@ -45,7 +45,7 @@ lb config noauto \
     --zsync false \
     --security true \
     --updates true \
-    --debootstrap-options "--include=ca-certificates --variant=minbase" \
+    --debootstrap-options "--include=ca-certificates,systemd" \
     "${@}"
 
 # replace channel and suite
