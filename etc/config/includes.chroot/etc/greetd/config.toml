@@ -1,9 +1,9 @@
 [terminal]
-vt = "next"
+vt = 7
 
 [default_session]
-command = "tuigreet --remember --time --issue --asterisks --cmd sway"
-user = "greeter"
+command = "cage -s -- gtkgreet"
+user = "_greetd"
  
 [initial_session]
 command = "sway"
