@@ -2,7 +2,7 @@
 vt = 7
 
 [default_session]
-command = "cage -s -- gtkgreet"
+command = "tuigreet --remember --time --issue --asterisks --cmd sway"
 user = "_greetd"
  
 [initial_session]
