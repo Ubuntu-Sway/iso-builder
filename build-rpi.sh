@@ -17,10 +17,10 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntusway-minimal ubuntusway-desktop ubuntusway-standard"
 export architecture="arm64"
-export codename="jammy"
+export codename="lunar"
 export channel="dev"
 
-version=22.04
+version=23.04
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
