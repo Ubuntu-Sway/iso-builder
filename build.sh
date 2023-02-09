@@ -23,9 +23,18 @@ echo -e "
 #----------------------#
 "
 
-apt-get update
-apt-get install -y binutils zstd live-build
-dpkg -i ./debs/*.deb
+# Use system live-build if running on Debian
+dist="$(lsb_release -i -s)"
+
+if [ $dist == "Debian" ]; then
+  apt-get install -y binutils zstd live-build
+  dpkg -i ./debs/ubuntu-keyring*.deb
+elif [ $dist == "Ubuntu" ]; then
+  apt-get install -y binutils zstd
+  dpkg -i ./debs/*.deb
+else
+  echo "E: Unsupported distribution for building"
+fi
 
 ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/lunar
 
