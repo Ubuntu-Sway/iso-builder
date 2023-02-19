@@ -44,6 +44,7 @@ lb config noauto \
     --zsync false \
     --security true \
     --updates true \
+    --debootstrap-options="--extractor=ar" \
     "${@}"
 
 # replace channel and suite
