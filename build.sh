@@ -14,7 +14,10 @@ if [ -n "$1" ]; then
 else
   CONFIG_FILE="etc/terraform.conf"
 fi
+
 BASE_DIR="$PWD"
+TMP_DIR="$BASE_DIR/tmp"
+BUILDS_DIR="$BASE_DIR/builds"
 source "$BASE_DIR"/"$CONFIG_FILE"
 
 echo -e "
@@ -23,15 +26,35 @@ echo -e "
 #----------------------#
 "
 
-apt-get update
-apt-get install -y binutils zstd live-build
-dpkg -i ./debs/*.deb
+# Use system live-build if running on Debian
+dist="$(lsb_release -i -s)"
+
+if [ $dist == "Debian" ]; then
+  apt-get install -y binutils zstd live-build
+  dpkg -i ./debs/ubuntu-keyring*.deb
+else
+  apt-get install -y binutils zstd debootstrap
+  dpkg -i ./debs/*.deb
+fi
+
+# Increase number of blocks for creating efi.img.
+# This prevents error with "Disk full" on the lb binary_grub-efi stage
+patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
+
+# Enable Jammy build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/jammy
 
 build () {
   BUILD_ARCH="$1"
 
-  mkdir -p "$BASE_DIR/tmp/$BUILD_ARCH"
-  cd "$BASE_DIR/tmp/$BUILD_ARCH" || exit
+  if [ -d "$TMP_DIR" ]; then
+    rm -rf $TMP_DIR
+    mkdir -p "$TMP_DIR/$BUILD_ARCH"
+  else
+    mkdir -p "$TMP_DIR/$BUILD_ARCH"
+  fi
+
+  cd "$TMP_DIR/$BUILD_ARCH" || exit
 
   # remove old configs and copy over new
   rm -rf config auto
@@ -70,7 +93,7 @@ build () {
 "
 
     YYYYMMDD="$(date +%Y%m%d%H%M)"
-    OUTPUT_DIR="$BASE_DIR/builds/$BUILD_ARCH"
+    OUTPUT_DIR="$BUILDS_DIR/$BUILD_ARCH"
     mkdir -p "$OUTPUT_DIR"
     if [ "$CHANNEL" == dev ]; then
       FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX-$ARCH"
@@ -79,14 +102,14 @@ build () {
     else
       echo -e "Error: invalid channel name!"
     fi
-    mv "$BASE_DIR/tmp/$BUILD_ARCH/live-image-$BUILD_ARCH.hybrid.iso" "$OUTPUT_DIR/${FNAME}.iso"
+    mv "$TMP_DIR/$BUILD_ARCH/live-image-$BUILD_ARCH.hybrid.iso" "$OUTPUT_DIR/${FNAME}.iso"
 
     md5sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.md5.txt"
     sha256sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.sha256.txt"
 }
 
 # remove old builds before creating new ones
-rm -rf "$BASE_DIR"/builds
+rm -rf "$BUILDS_DIR"
 
 build "$ARCH"
 
