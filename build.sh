@@ -33,7 +33,7 @@ if [ $dist == "Debian" ]; then
   apt-get install -y binutils zstd live-build
   dpkg -i ./debs/ubuntu-keyring*.deb
 else
-  apt-get install -y binutils zstd
+  apt-get install -y binutils zstd debootstrap
   dpkg -i ./debs/*.deb
 fi
 
