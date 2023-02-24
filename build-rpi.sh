@@ -107,7 +107,7 @@ LANG=C.UTF-8 chroot ubuntusway-$architecture /desktop
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
 apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
-pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings
+pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings upower
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
 # Install first boot filesystem expansion
@@ -196,6 +196,40 @@ EOF
 
 chmod +x ubuntusway-$architecture/enable_zswap
 LANG=C.UTF-8 chroot ubuntusway-$architecture /enable_zswap
+
+# Cleanup chroot before creating .img
+cat <<EOF >> ubuntusway-$architecture/cleanup
+#!/bin/bash
+
+apt-get -y autoremove
+apt-get -y autoclean
+apt-get -y clean
+
+rm -rf {*.bak,*.old}
+rm -rf wget-log
+rm -rf /boot/{*.bak,*.old}
+rm -rf /etc/ssh/ssh_host_*_key*
+rm -rf /etc/apt/*.save
+rm -rf /etc/apt/apt.conf.d/90cache
+rm -rf /etc/apt/sources.list.d/*.save
+rm -rf /root/.wget-hsts
+rm -rf /tmp/*
+rm -rf /var/log/apt/*
+rm -rf /var/log/alternatives.log
+rm -rf /var/log/bootstrap.log
+rm -rf /var/log/dpkg.log
+rm -rf /var/log/fontconfig.log
+rm -rf /var/cache/fontconfig/CACHEDIR.TAG
+rm -rf /var/crash/*
+rm -rf /var/lib/apt/lists/*
+rm -rf /var/lib/dpkg/*-old
+
+[ -L /var/lib/dbus/machine-id ] || rm -f /var/lib/dbus/machine-id
+echo '' > /etc/machine-id
+EOF
+
+chmod +x ubuntusway-$architecture/cleanup
+LANG=C.UTF-8 chroot ubuntusway-$architecture /cleanup
 
 # Calculate image size accounting for boot parition + 5%
 boot_size="256"
