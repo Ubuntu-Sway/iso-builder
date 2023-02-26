@@ -229,6 +229,8 @@ rm -rf /var/lib/dpkg/*-old
 
 [ -L /var/lib/dbus/machine-id ] || rm -f /var/lib/dbus/machine-id
 echo '' > /etc/machine-id
+
+rm -f cleanup
 EOF
 
 chmod +x ubuntusway-$architecture/cleanup
