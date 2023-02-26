@@ -107,7 +107,7 @@ LANG=C.UTF-8 chroot ubuntusway-$architecture /desktop
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
 apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
-pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings upower
+pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings-desktop upower
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
 # Install first boot filesystem expansion
@@ -154,11 +154,6 @@ chmod +x ubuntusway-$architecture/user
 LANG=C.UTF-8 chroot ubuntusway-$architecture /user
 
 # Creating swapfile service
-
-# Adds lz4 and z3fold modules to initramfs.
-# - https://ubuntu.com/blog/how-low-can-you-go-running-ubuntu-desktop-on-a-2gb-raspberry-pi-4
-echo lz4    >> ubuntusway-$architecture/etc/initramfs-tools/modules
-echo z3fold >> ubuntusway-$architecture/etc/initramfs-tools/modules
 
 mkdir -p ubuntusway-$architecture/usr/lib/systemd/system/swap.target.wants
 
