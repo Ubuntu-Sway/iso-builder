@@ -3,6 +3,12 @@
 set -e
 
 # Install dependencies in host system
+echo -e "
+#----------------------#
+# INSTALL DEPENDENCIES #
+#----------------------#
+"
+
 apt-get update
 apt-get install -y --no-install-recommends \
 ubuntu-keyring ca-certificates debootstrap git \
@@ -28,6 +34,12 @@ mkdir -p "${basedir}"
 cd "${basedir}"
 
 # Bootstrap an ubuntu minimal system
+echo -e "
+#----------------------#
+# BOOTSTRAP BASE SYSTEM #
+#----------------------#
+"
+
 debootstrap \
     --arch $architecture \
     --components=main,restricted,universe,multiverse \
@@ -92,6 +104,12 @@ mount -o bind /dev/ ubuntusway-$architecture/dev/
 mount -o bind /dev/pts ubuntusway-$architecture/dev/pts
 
 # Make a desktop stage that installs all of the metapackages
+echo -e "
+#--------------------------#
+# INSTALL DESKTOP PACKAGES #
+#--------------------------#
+"
+
 cat << EOF > ubuntusway-$architecture/desktop
 #!/bin/bash
 apt-get update
@@ -104,6 +122,12 @@ chmod +x ubuntusway-$architecture/desktop
 LANG=C.UTF-8 chroot ubuntusway-$architecture /desktop
 
 # Install Raspberry Pi specific packages
+echo -e "
+#----------------------------------------#
+# INSTALL RASPBERRY PI SPECIFIC PACKAGES #
+#----------------------------------------#
+"
+
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
 apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
@@ -125,6 +149,12 @@ cp -rv "${rootdir}"/etc/config/includes.chroot/etc/netplan/ ubuntusway-$architec
 cp -rv "${rootdir}"/etc/config/includes.chroot/usr ubuntusway-$architecture/
 cp -rv "${rootdir}"/rpi/greetd/* ubuntusway-${architecture}/etc/greetd/
 
+echo -e "
+#----------------------#
+# RUNNING HOOKS        #
+#----------------------#
+"
+
 mkdir ubuntusway-$architecture/hooks
 cp -v "${rootdir}"/etc/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
 
@@ -138,6 +168,12 @@ done
 rm -r "ubuntusway-$architecture/hooks"
 
 # Create OEM user
+echo -e "
+#----------------------#
+# CREATING OEM USER    #
+#----------------------#
+"
+
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
 apt-get update
@@ -154,6 +190,11 @@ chmod +x ubuntusway-$architecture/user
 LANG=C.UTF-8 chroot ubuntusway-$architecture /user
 
 # Creating swapfile service
+echo -e "
+#----------------------#
+# CREATING SWAPFILE    #
+#----------------------#
+"
 
 mkdir -p ubuntusway-$architecture/usr/lib/systemd/system/swap.target.wants
 
@@ -193,6 +234,12 @@ chmod +x ubuntusway-$architecture/enable_zswap
 LANG=C.UTF-8 chroot ubuntusway-$architecture /enable_zswap
 
 # Cleanup chroot before creating .img
+echo -e "
+#----------------------#
+# CLEANING CHROOT      #
+#----------------------#
+"
+
 cat <<EOF >> ubuntusway-$architecture/cleanup
 #!/bin/bash
 
@@ -228,6 +275,12 @@ EOF
 chmod +x ubuntusway-$architecture/cleanup
 LANG=C.UTF-8 chroot ubuntusway-$architecture /cleanup
 
+echo -e "
+#----------------------#
+# CREATING IMAGE FILE  #
+#----------------------#
+"
+
 # Calculate image size accounting for boot parition + 5%
 boot_size="256"
 root_size="$(du -cs --block-size=MB ubuntusway-$architecture | tail -n1 | cut -d'M' -f1)"
@@ -235,8 +288,6 @@ pad_size="$(( (root_size / 10) / 2 ))"
 raw_size="$((boot_size + root_size + pad_size))"
 
 # Create the disk and partition it
-echo "Creating image file"
-
 fallocate -l "${raw_size}"M "${basedir}/${imagename}.img"
 
 parted "${imagename}.img" -s -- mklabel msdos
@@ -309,3 +360,9 @@ cd "${basedir}"
 
 md5sum "${imagename}.img.xz" | tee "${imagename}.md5.txt"
 sha256sum "${imagename}.img.xz" | tee "${imagename}.sha256.txt"
+
+echo -e "
+#----------------------#
+# BUILD DONE           #
+#----------------------#
+"
