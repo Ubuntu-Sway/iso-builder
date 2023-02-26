@@ -266,7 +266,7 @@ mount -o bind "${basedir}/bootp/" ubuntusway-$architecture/boot/firmware
 # Copy Raspberry Pi specific files
 cp -rv "${rootdir}"/rpi/rootfs/system-boot/* ubuntusway-${architecture}/boot/firmware/
 
-NEW_KERNEL=$(ls -1 ubuntusway-$architecture/boot/vmlinuz-* | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
+NEW_KERNEL=$(find ubuntusway-$architecture/boot/vmlinuz-* | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
     if [ -z "${NEW_KERNEL}" ]; then
         echo "ERROR! Could not detect the new kernel version"
         exit 1
