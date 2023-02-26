@@ -31,7 +31,7 @@ apt-get update && apt-get install -y lsb-release
 
 dist="$(lsb_release -i -s)"
 
-if [ $dist == "Debian" ]; then
+if [ "$dist" == "Debian" ]; then
   apt-get install -y binutils patch zstd live-build
   dpkg -i ./debs/ubuntu-keyring*.deb
 else
@@ -59,7 +59,7 @@ build () {
   BUILD_ARCH="$1"
 
   if [ -d "$TMP_DIR" ]; then
-    rm -rf $TMP_DIR
+    rm -rf "$TMP_DIR"
     mkdir -p "$TMP_DIR/$BUILD_ARCH"
   else
     mkdir -p "$TMP_DIR/$BUILD_ARCH"
