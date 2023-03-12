@@ -21,7 +21,7 @@ update-binfmts --enable
 rootdir=$(pwd)
 basedir=$(pwd)/artifacts/ubuntusway-rpi
 
-export packages="ubuntu-sway-minimal ubuntu-sway-desktop ubuntu-sway-standard"
+export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
 export codename="lunar"
 export channel="dev"
@@ -130,13 +130,9 @@ echo -e "
 
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
-apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi \
-pi-bluetooth rpi-eeprom libraspberrypi0 libraspberrypi-bin ubuntu-raspi-settings-desktop upower
+apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi pi-bluetooth upower
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
-# Install first boot filesystem expansion
-apt-get -y install --no-install-recommends cloud-guest-utils \
-cloud-initramfs-growroot
 rm -f hardware
 EOF
 
