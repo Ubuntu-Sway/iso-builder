@@ -21,7 +21,7 @@ update-binfmts --enable
 rootdir=$(pwd)
 basedir=$(pwd)/artifacts/ubuntusway-rpi
 
-export packages="ubuntusway-minimal ubuntusway-desktop ubuntusway-standard"
+export packages="ubuntu-sway-minimal ubuntu-sway-desktop ubuntu-sway-standard"
 export architecture="arm64"
 export codename="lunar"
 export channel="dev"
