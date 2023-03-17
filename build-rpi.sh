@@ -172,8 +172,6 @@ echo -e "
 
 cat <<EOF >> ubuntusway-$architecture/user
 #!/bin/bash
-apt-get update
-apt-get -y install calamares-arm-oem
 DATE=$(date +%m%H%M%S)
 PASSWD=$(mkpasswd -m sha-512 oem "${DATE}")
 addgroup --gid 29999 oem
