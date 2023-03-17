@@ -130,7 +130,9 @@ echo -e "
 
 cat << EOF > ubuntusway-$architecture/hardware
 #!/bin/bash
-apt-get -y install linux-image-raspi linux-firmware-raspi linux-modules-extra-raspi pi-bluetooth upower
+apt-get -y install linux-image-raspi linux-firmware-raspi \
+linux-modules-extra-raspi pi-bluetooth upower \
+calamares-settings-ubuntu-sway-raspi
 apt-get -y install --no-install-recommends raspi-config
 systemctl disable raspi-config
 rm -f hardware
