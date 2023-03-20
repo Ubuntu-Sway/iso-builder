@@ -30,8 +30,16 @@ version=23.04
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
-mkdir -p "${basedir}"
-cd "${basedir}"
+# Remove old builds before creating new one
+echo -e "
+#----------------------#
+# REMOVE OLD BUILDS    #
+#----------------------#
+"
+
+if [ -d $rootdir/artifacts ]; then
+	rm -rf $rootdir/artifacts
+fi
 
 # Bootstrap an ubuntu minimal system
 echo -e "
@@ -39,6 +47,9 @@ echo -e "
 # BOOTSTRAP BASE SYSTEM #
 #----------------------#
 "
+
+mkdir -p "${basedir}"
+cd "${basedir}"
 
 debootstrap \
     --arch $architecture \
