@@ -23,7 +23,7 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
-export codename="lunar"
+export codename="mantic"
 export channel="dev"
 
 version=23.04
