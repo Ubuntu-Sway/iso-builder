@@ -52,8 +52,8 @@ patch -d /usr/share/debootstrap/ < debootstrap-backport-zstd-support.patch
 # This prevents error with "Disk full" on the lb binary_grub-efi stage
 patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
-# Enable Lunar build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/lunar
+# Enable Mantic build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/mantic
 
 build () {
   BUILD_ARCH="$1"
