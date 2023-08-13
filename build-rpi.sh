@@ -20,7 +20,7 @@ export architecture="arm64"
 export codename="jammy"
 export channel="stable"
 
-version=22.04.2
+version=22.04.3
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
