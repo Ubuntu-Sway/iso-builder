@@ -26,7 +26,7 @@ export architecture="arm64"
 export codename="mantic"
 export channel="dev"
 
-version=23.04
+version=23.10
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 

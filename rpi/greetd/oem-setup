@@ -2,7 +2,7 @@
 include /etc/sway/variables
 
 # include theme specific definitions
-include /usr/share/ubuntusway/themes/yaru-sway/variables
+include /usr/share/themes/yaru-sway/variables
 
 # enable default input/output devices
 include /etc/sway/inputs/*.conf
