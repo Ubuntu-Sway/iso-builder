@@ -23,10 +23,10 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
-export codename="mantic"
+export codename="noble"
 export channel="stable"
 
-version=23.10
+version=24.04
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
