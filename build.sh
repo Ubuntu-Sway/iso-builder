@@ -43,8 +43,8 @@ fi
 # This prevents error with "Disk full" on the lb binary_grub-efi stage
 patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
-# Enable Mantic build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/mantic
+# Enable Noble build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
 
 build () {
   BUILD_ARCH="$1"
