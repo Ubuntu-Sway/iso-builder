@@ -13,7 +13,7 @@ apt-get update
 apt-get install -y --no-install-recommends \
 ubuntu-keyring ca-certificates debootstrap git \
 qemu-user-static qemu-utils qemu-system-arm binfmt-support \
-parted kpartx rsync dosfstools xz-utils
+parted kpartx rsync dosfstools xz-utils whois
 
 # Make sure cross-running ARM ELF executables is enabled
 update-binfmts --enable
