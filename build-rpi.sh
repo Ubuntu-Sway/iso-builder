@@ -51,6 +51,9 @@ echo -e "
 mkdir -p "${basedir}"
 cd "${basedir}"
 
+# Enable Noble build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
+
 debootstrap \
     --arch $architecture \
     --components=main,restricted,universe,multiverse \
