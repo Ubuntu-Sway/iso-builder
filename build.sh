@@ -99,9 +99,9 @@ build () {
     mkdir -p "$OUTPUT_DIR"
     if [ "$CHANNEL" == dev ]; then
       FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX-$ARCH"
-    elif [ "$CHANNEL" == stable ] && [ "BETA" == true ]; then
+    elif [ "$CHANNEL" == stable ] && [ "$BETA" == true ]; then
       FNAME="ubuntusway-$VERSION-beta-$OUTPUT_SUFFIX-$ARCH"
-    elif [ "$CHANNEL" == stable ] && [ "BETA" == false ]; then
+    elif [ "$CHANNEL" == stable ] && [ "$BETA" == false ]; then
       FNAME="ubuntusway-$VERSION-$OUTPUT_SUFFIX-$ARCH"
     else
       echo -e "Error: invalid channel name!"
