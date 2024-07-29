@@ -1,7 +1,0 @@
-Package: firefox*
-Pin: release o=LP-PPA-mozillateam
-Pin-Priority: 501
-
-Package: firefox*
-Pin: release o=Ubuntu
-Pin-Priority: -1

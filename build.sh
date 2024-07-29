@@ -44,7 +44,7 @@ fi
 patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
 # Enable Noble build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/oracular
 
 build () {
   BUILD_ARCH="$1"
