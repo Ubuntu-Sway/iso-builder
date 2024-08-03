@@ -48,7 +48,7 @@ EOF
 
 snap_install() {
     local ACCOUNT_KEY=""
-    local SEED_SNAPS="firefox thunderbird gnome-42-2204 gtk-common-themes bare"
+    local SEED_SNAPS="firefox thunderbird gnome-42-2204 gtk-common-themes"
     local SNAP_CHANNEL=""
 
     # Prepare assertions
@@ -63,6 +63,17 @@ snap_install() {
     for SNAP_NAME in ${SEED_SNAPS}; do
         SNAP_CHANNEL="stable"
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
+
+        # Download any required base snaps
+        if snap info --verbose /var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > "${SNAP_NAME}.info"; then
+            if grep -q '^base:' "${SNAP_NAME}.info"; then
+                BASE_SNAP=$(awk '/^base:/ {print $2}' "${SNAP_NAME}.info")
+                snap_preseed "${BASE_SNAP}" stable
+                case "${BASE_SNAP}" in
+                    core[0-9]*) snap_preseed snapd stable;;
+                esac
+            fi
+        fi
     done
 
     # Validate seed.yaml
