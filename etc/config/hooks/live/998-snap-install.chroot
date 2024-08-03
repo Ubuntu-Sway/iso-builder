@@ -52,13 +52,14 @@ snap_install() {
     local SNAP_CHANNEL=""
 
     # Prepare assertions
-    mkdir -p /var/lib/snapd/seed/{assertions,snaps}
+    mkdir -p /var/lib/snapd/seed/assertions
+    mkdir -p /var/lib/snapd/seed/snaps
     snap known --remote model series=16 model=generic-classic brand-id=generic > "/var/lib/snapd/seed/assertions/model"
     ACCOUNT_KEY=$(grep "^sign-key-sha3-384" "/var/lib/snapd/seed/assertions/model" | cut -d':' -f2 | sed 's/ //g')
     snap known --remote account-key public-key-sha3-384="${ACCOUNT_KEY}" > "/var/lib/snapd/seed/assertions/account-key"
     snap known --remote account account-id=generic > "/var/lib/snapd/seed/assertions/account"
 
-     Download the snaps
+    # Download the snaps
     for SNAP_NAME in ${SEED_SNAPS}; do
         SNAP_CHANNEL="stable"
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
