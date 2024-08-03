@@ -1,8 +1,9 @@
 #!/bin/sh
 
+apt-get -y update
 apt-get -y install xdelta3
 
-function snap_preseed() {
+snap_preseed() {
     local SNAP_NAME="${1}"
     local SNAP_CHANNEL="${2}"
     local SNAP_CONFINEMENT=""
@@ -45,7 +46,7 @@ EOF
     basename "${SNAP_FILE}" >> /var/lib/snapd/seed/seed.yaml
 }
 
-function snap_install() {
+snap_install() {
     local ACCOUNT_KEY=""
     local SEED_SNAPS="firefox thunderbird gnome-42-2204 gtk-common-themes bare"
     local SNAP_CHANNEL=""
@@ -61,6 +62,7 @@ function snap_install() {
     for SNAP_NAME in ${SEED_SNAPS}; do
         SNAP_CHANNEL="stable"
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
+    done
 
     # Validate seed.yaml
     if snap debug validate-seed /var/lib/snapd/seed/seed.yaml; then
@@ -73,3 +75,5 @@ function snap_install() {
     /usr/lib/snapd/snap-preseed --reset
     apparmor_parser --skip-read-cache --write-cache --skip-kernel-load --verbose  -j $(nproc) /etc/apparmor.d
 }
+
+snap_install
