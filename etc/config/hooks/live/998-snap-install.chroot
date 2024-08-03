@@ -14,7 +14,7 @@ snap_preseed() {
         return
     fi
 
-    SNAPPY_STORE_NO_CDN=1 UBUNTU_STORE_ARCH="${IMG_ARCH}" snap download --target-directory=/var/lib/snapd/seed "${SNAP_NAME}" --channel="${SNAP_CHANNEL}"
+    SNAPPY_STORE_NO_CDN=1 UBUNTU_STORE_ARCH=amd64 snap download --target-directory=/var/lib/snapd/seed "${SNAP_NAME}" --channel="${SNAP_CHANNEL}"
     mv -v /var/lib/snapd/seed/*.assert /var/lib/snapd/seed/assertions/
     mv -v /var/lib/snapd/seed/*.snap /var/lib/snapd/seed/snaps/
     if [ "${SNAP_NAME}" == "snapd" ]; then
@@ -47,9 +47,7 @@ EOF
 }
 
 snap_install() {
-    local ACCOUNT_KEY=""
     local SEED_SNAPS="firefox thunderbird gnome-42-2204 gtk-common-themes"
-    local SNAP_CHANNEL=""
 
     # Prepare assertions
     mkdir -p /var/lib/snapd/seed/assertions
