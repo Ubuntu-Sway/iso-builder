@@ -52,7 +52,7 @@ mkdir -p "${basedir}"
 cd "${basedir}"
 
 # Enable Noble build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/oracular
 
 debootstrap \
     --arch $architecture \
