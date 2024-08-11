@@ -45,6 +45,7 @@ fi
 
 # Increase number of blocks for creating efi.img.
 # This prevents error with "Disk full" on the lb binary_grub-efi stage
+patch -R -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
 # Enable Noble build in debootstrap
