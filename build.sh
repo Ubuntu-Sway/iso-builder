@@ -2,12 +2,15 @@
 
 set -e
 
+export TERM=xterm
+
 # check for root permissions
 if [[ "$(id -u)" != 0 ]]; then
   echo "E: Requires root permissions" > /dev/stderr
   exit 1
 fi
 
+prepare() {
 # get config
 if [ -n "$1" ]; then
   CONFIG_FILE="$1"
@@ -32,21 +35,22 @@ apt-get update && apt-get install -y lsb-release
 dist="$(lsb_release -i -s)"
 
 if [ "$dist" == "Debian" ]; then
-  apt-get install -y binutils patch zstd live-build
-  dpkg -i ./debs/ubuntu-keyring*.deb
+  apt-get install -y binutils patch zstd live-build xdelta3
+  dpkg -i ./debs/ubuntu-keyring*.deb ./debs/distro-info*.deb ./debs/distro-info-data*.deb ./debs/snap*.deb
 else
-  apt-get install -y binutils patch zstd debootstrap
-  dpkg -i ./debs/*.deb
+  apt-get install -y binutils patch zstd debootstrap xz-utils snapd perl ubuntu-keyring
+  apt install -y ./debs/live-build*.deb
 fi
+}
 
 # Increase number of blocks for creating efi.img.
 # This prevents error with "Disk full" on the lb binary_grub-efi stage
-patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
+#patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
 # Enable Noble build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/oracular
+#ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
 
-build () {
+build() {
   BUILD_ARCH="$1"
 
   if [ -d "$TMP_DIR" ]; then
@@ -61,6 +65,7 @@ build () {
   # remove old configs and copy over new
   rm -rf config auto
   cp -r "$BASE_DIR"/etc/* .
+  cp -r "$BASE_DIR"/etc/seeded-snaps ./config/
   # Make sure conffile specified as arg has correct name
   cp -f "$BASE_DIR"/"$CONFIG_FILE" terraform.conf
 
@@ -115,5 +120,6 @@ build () {
 # remove old builds before creating new ones
 rm -rf "$BUILDS_DIR"
 
+prepare
 build "$ARCH"
 

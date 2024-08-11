@@ -7,7 +7,7 @@ dist="$(lsb_release -c -s -u 2>&1)"||dist="$(lsb_release -c -s)"
 
 apt-get install --no-install-recommends -f -q -y git
 
-git clone --depth 1 https://github.com/Ubuntu-Sway/seeds.git --single-branch --branch "$dist"
+git clone --depth 1 https://github.com/Ubuntu-Sway/seeds.git --single-branch --branch oracular-snap
 
 for package in $(cat 'seeds/blacklist' | grep -v '#'); do
     apt-get autoremove --purge -f -q -y "$package"

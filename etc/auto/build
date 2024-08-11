@@ -1,0 +1,545 @@
+#! /bin/sh
+set -e
+
+export LC_ALL=C
+
+( . "${LIVE_BUILD}/scripts/build.sh" > /dev/null 2>&1 || true ) || . /usr/lib/live/build.sh
+
+Arguments "${@}"
+
+Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
+
+use_lp_archives_in_sourceslist(){
+    # Use the build environment apt mirror during the build,
+    # for both archive and security.
+    # live-build does this in the chroot (lb_chroot_archives)
+    # but not for the binary hooks
+    #
+    # To restore the sourceslist back to the original, call
+    # recover_sourceslist
+
+    mountpoint="${1}"
+    . config/bootstrap  # For the LB_MIRROR_* variables
+    if [ -e "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources" ]; then
+        MOUNTPOINT_BACKUP_UBUNTU_SOURCES="ubuntu.sources.tmp"
+        cp -a "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources" "${MOUNTPOINT_BACKUP_UBUNTU_SOURCES}"
+        sed -i "s#http://archive.ubuntu.com/ubuntu#${LB_PARENT_MIRROR_CHROOT}#g" \
+            "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources"
+        sed -i "s#http://security.ubuntu.com/ubuntu#${LB_PARENT_MIRROR_CHROOT}#g" \
+            "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources"
+
+        sha256sum "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources" > ubuntu.sources.sha
+    fi
+    if [ -e "${mountpoint}/etc/apt/sources.list" ]; then
+        MOUNTPOINT_BACKUP_SOURCES_LIST="sources.list.tmp"
+        cp -a "${mountpoint}/etc/apt/sources.list" "${MOUNTPOINT_BACKUP_SOURCES_LIST}"
+        sed -i "s#http://archive.ubuntu.com/ubuntu#${LB_PARENT_MIRROR_CHROOT}#g" \
+            "${mountpoint}/etc/apt/sources.list"
+        sed -i "s#http://security.ubuntu.com/ubuntu#${LB_PARENT_MIRROR_CHROOT}#g" \
+            "${mountpoint}/etc/apt/sources.list"
+
+        sha256sum "${mountpoint}/etc/apt/sources.list" > sources.list.sha
+    fi
+}
+
+recover_sourceslist(){
+    # Remove the build environment apt mirror from the image
+
+    # Check that the sources.list has not changed.  If it has changed then the
+    # binary hook has modified the file that will be discarded.  If the build
+    # fails here the binary hook needs to alter sources.list.tmp and regenerate
+    # sources.list.sha
+
+    mountpoint="${1}"
+    if [ -e "${MOUNTPOINT_BACKUP_UBUNTU_SOURCES:-/doesnotexist}" ]; then
+        sha256sum --check ubuntu.sources.sha
+
+        mv "${MOUNTPOINT_BACKUP_UBUNTU_SOURCES}" "${mountpoint}/etc/apt/sources.list.d/ubuntu.sources"
+        unset MOUNTPOINT_BACKUP_UBUNTU_SOURCES
+    fi
+    if [ -e "${MOUNTPOINT_BACKUP_SOURCES_LIST:-/doesnotexist}" ]; then
+        sha256sum --check sources.list.sha
+
+        mv "${MOUNTPOINT_BACKUP_SOURCES_LIST}" "${mountpoint}/etc/apt/sources.list"
+        unset MOUNTPOINT_BACKUP_SOURCES_LIST
+    fi
+}
+
+setup_mountpoint() {
+    local mountpoint="$1"
+
+    if [ ! -c /dev/mem ]; then
+        mknod -m 660 /dev/mem c 1 1
+        chown root:kmem /dev/mem
+    fi
+
+    mount dev-live -t devtmpfs "$mountpoint/dev"
+    mount devpts-live -t devpts -o nodev,nosuid "$mountpoint/dev/pts"
+    mount proc-live -t proc "$mountpoint/proc"
+    mount sysfs-live -t sysfs "$mountpoint/sys"
+    mount securityfs -t securityfs "$mountpoint/sys/kernel/security"
+    # Provide more up to date apparmor features, matching target kernel
+    mount -o bind ../../apparmor/generic "$mountpoint/sys/kernel/security/apparmor/features/"
+    mount -o bind ../../seccomp/generic.actions_avail "$mountpoint/proc/sys/kernel/seccomp/actions_avail"
+    # cgroup2 mount for LP: 1944004
+    mount -t cgroup2 none "$mountpoint/sys/fs/cgroup"
+    mount -t tmpfs none "$mountpoint/tmp"
+    mount -t tmpfs none "$mountpoint/var/lib/apt/lists"
+    mount -t tmpfs none "$mountpoint/var/cache/apt"
+    mv "$mountpoint/etc/resolv.conf" resolv.conf.tmp
+    cp /etc/resolv.conf "$mountpoint/etc/resolv.conf"
+    mv "$mountpoint/etc/nsswitch.conf" nsswitch.conf.tmp
+    sed 's/systemd//g' nsswitch.conf.tmp > "$mountpoint/etc/nsswitch.conf"
+    use_lp_archives_in_sourceslist "${mountpoint}"
+    chroot "$mountpoint" apt-get update
+
+}
+
+teardown_mountpoint() {
+    # Reverse the operations from setup_mountpoint
+    local mountpoint=$(realpath "$1")
+
+    # ensure we have exactly one trailing slash, and escape all slashes for awk
+    mountpoint_match=$(echo "$mountpoint" | sed -e's,/$,,; s,/,\\/,g;')'\/'
+    # sort -r ensures that deeper mountpoints are unmounted first
+    for submount in $(awk </proc/self/mounts "\$2 ~ /$mountpoint_match/ \
+                      { print \$2 }" | LC_ALL=C sort -r); do
+        mount --make-private $submount
+        umount $submount
+    done
+    recover_sourceslist "${mountpoint}"
+    mv resolv.conf.tmp "$mountpoint/etc/resolv.conf"
+    mv nsswitch.conf.tmp "$mountpoint/etc/nsswitch.conf"
+}
+
+_snap_post_process() {
+    # Look for the 'core' snap. If it is not present, assume that the image
+    # contains only snaps with bases >= core18. In that case snapd is
+    # preseeded. However, when 'core' is being installed and snapd has not
+    # been installed by a call to 'snap_preseed' (see below) then it is
+    # removed again.
+    local CHROOT_ROOT=$1
+    local SNAP_NAME=$2
+
+    local seed_dir="$CHROOT_ROOT/var/lib/snapd/seed"
+    local snaps_dir="$seed_dir/snaps"
+    local seed_yaml="$seed_dir/seed.yaml"
+    local assertions_dir="$seed_dir/assertions"
+    local snapd_install_stamp="$seed_dir/.snapd-explicit-install-stamp"
+
+    case $SNAP_NAME in
+        core[0-9]*)
+            # If the 'core' snap is not present, assume we are coreXX-only and
+            # install the snapd snap.
+            if [ ! -f ${snaps_dir}/core_[0-9]*.snap ]; then
+                _snap_preseed $CHROOT_ROOT snapd stable
+            fi
+            ;;
+        core)
+            # If the snapd snap has been seeded, but not marked as explicitly
+            # installed (see snap_preseed below), then remove it.
+            if [ -f ${snaps_dir}/snapd_[0-9]*.snap ] && \
+                    [ ! -f "$snapd_install_stamp" ]
+            then
+                # Remove snap, assertions and entry in seed.yaml
+                rm -f ${snaps_dir}/snapd_[0-9]*.snap
+                rm -f ${assertions_dir}/snapd_[0-9]*.assert
+                sed -i -e'N;/name: snapd/,+2d' $seed_yaml
+            fi
+            ;;
+        *)
+            # ignore
+            ;;
+    esac
+}
+
+_snap_preseed() {
+    # Download the snap/assertion and add to the preseed
+    local CHROOT_ROOT=$1
+    local SNAP=$2
+    local SNAP_NAME=${SNAP%/*}
+    local CHANNEL=${3:?Snap channel must be specified}
+
+    local seed_dir="$CHROOT_ROOT/var/lib/snapd/seed"
+    local snaps_dir="$seed_dir/snaps"
+    local seed_yaml="$seed_dir/seed.yaml"
+    local assertions_dir="$seed_dir/assertions"
+
+    # Download the snap & assertion
+    local snap_download_failed=0
+
+    # Preseed a snap only once
+    if [ -f ${snaps_dir}/${SNAP_NAME}_[0-9]*.snap ]; then
+        return
+    fi
+
+    sh -c "
+        set -x;
+        cd \"$CHROOT_ROOT/var/lib/snapd/seed\";
+        UBUNTU_STORE_ARCH=${ARCH:-} SNAPPY_STORE_NO_CDN=1 snap download \
+            --cohort="${COHORT_KEY:-}" \
+            --channel=\"$CHANNEL\" \"$SNAP_NAME\"" || snap_download_failed=1
+    if [ $snap_download_failed = 1 ] ; then
+        echo "If the channel ($CHANNEL) includes '*/ubuntu-##.##' track per "
+        echo "Ubuntu policy (ex. stable/ubuntu-18.04) the publisher will need "
+        echo "to temporarily create the channel/track to allow fallback during"
+        echo "download (ex. stable/ubuntu-18.04 falls back to stable if the"
+        echo "prior had been created in the past)."
+        exit 1
+    fi
+
+    mv -v $seed_dir/*.assert $assertions_dir
+    mv -v $seed_dir/*.snap $snaps_dir
+
+    # Pre-seed snap's base
+    case $SNAP_NAME in
+        snapd)
+            # snapd is self-contained, ignore base
+            ;;
+        core|core[0-9][0-9])
+            # core and core## are self-contained, ignore base
+            ;;
+        *)
+            # Determine which core snap is needed
+            local snap_info
+
+            # snap info doesn't have --channel, so must run agains the downloaded snap
+            snap_info=$(snap info --verbose ${snaps_dir}/${SNAP_NAME}_[0-9]*.snap)
+
+            if [ $? -ne 0 ]; then
+                echo "Failed to retrieve base of $SNAP_NAME!"
+                exit 1
+            fi
+
+            local snap_type=$(echo "$snap_info" | awk '/^type:/ { print $2 }')
+
+            if [ "$snap_type" != base ]; then
+                local core_snap=$(echo "$snap_info" | awk '/^base:/ {print $2}')
+
+                # If snap info does not list a base the default is 'core'
+                # which is now an error to use.
+                if [ -z "$core_snap" ]; then
+		    if [ -z "$ALLOW_CORE_SNAP" ]; then
+			echo "Legacy snap with no base declaration found, refusing to install 'core' snap"
+			exit 1
+		    else
+			echo "Legacy snap with no base declaration found, but \$ALLOW_CORE_SNAP set. continue (but FIX YOUR SNAPS!)"
+			core_snap=${core_snap:-core}
+		    fi
+                fi
+
+                _snap_preseed $CHROOT_ROOT $core_snap stable
+            fi
+            ;;
+    esac
+
+    # Add the snap to the seed.yaml
+    ! [ -e $seed_yaml ] && echo "snaps:" > $seed_yaml
+    cat <<EOF >> $seed_yaml
+  -
+    name: ${SNAP_NAME}
+    channel: ${CHANNEL}
+EOF
+
+    case ${SNAP} in */classic) echo "    classic: true" >> $seed_yaml;; esac
+
+    echo -n "    file: " >> $seed_yaml
+    (cd $snaps_dir; ls -1 ${SNAP_NAME}_*.snap) >> $seed_yaml
+
+    _snap_post_process $CHROOT_ROOT $SNAP_NAME
+}
+
+snap_prepare_assertions() {
+    # Configure basic snapd assertions
+    local CHROOT_ROOT=$1
+    # A colon-separated string of brand:model to be used for the image's model
+    # assertion
+    local CUSTOM_BRAND_MODEL=$2
+
+    local seed_dir="$CHROOT_ROOT/var/lib/snapd/seed"
+    local snaps_dir="$seed_dir/snaps"
+    local assertions_dir="$seed_dir/assertions"
+    local model_assertion="$assertions_dir/model"
+    local account_key_assertion="$assertions_dir/account-key"
+    local account_assertion="$assertions_dir/account"
+
+    local brand="$(echo $CUSTOM_BRAND_MODEL | cut -d: -f 1)"
+    local model="$(echo $CUSTOM_BRAND_MODEL | cut -d: -f 2)"
+
+    # Get existing model and brand assertions to compare with new parameters
+    # For customized images, snap_prepare_assertions is called several times
+    # with different brand or model. In this case we want to overwrite
+    # existing brand and models.
+    local override_model_branch="false"
+    if [ -e "$model_assertion" ] ; then
+        existing_model=$(awk '/^model: / {print $2}' $model_assertion)
+        existing_brand=$(awk '/^brand-id: / {print $2}' $model_assertion)
+
+        if [ "$existing_model" != "$model" ] || [ "$existing_brand" != "$brand" ]; then
+            override_model_branch="true"
+        fi
+    fi
+
+    # Exit if assertions dir exists and we didn't change model or brand
+    if [ -d "$assertions_dir" ] && [ "$override_model_branch" = "false" ]; then
+        return
+    fi
+
+    mkdir -p "$assertions_dir"
+    mkdir -p "$snaps_dir"
+
+    # Clear the assertions if they already exist
+    if [ -e "$model_assertion" ] ; then
+        echo "snap_prepare_assertions: replacing $existing_brand:$existing_model with $brand:$model"
+        rm "$model_assertion"
+        rm "$account_key_assertion"
+        rm "$account_assertion"
+    fi
+
+    if ! [ -e "$model_assertion" ] ; then
+        snap known --remote model series=16 \
+            model=$model brand-id=$brand \
+            > "$model_assertion"
+    fi
+
+    if ! [ -e "$account_key_assertion" ] ; then
+        local account_key=$(sed -n -e's/sign-key-sha3-384: //p' \
+            < "$model_assertion")
+        snap known --remote account-key \
+            public-key-sha3-384="$account_key" \
+            > "$account_key_assertion"
+    fi
+
+    if ! [ -e "$account_assertion" ] ; then
+        local account=$(sed -n -e's/account-id: //p' < "$account_key_assertion")
+        snap known --remote account account-id=$account \
+            > "$account_assertion"
+    fi
+}
+
+snap_prepare() {
+    # Configure basic snapd assertions and pre-seeds the 'core' snap
+    local CHROOT_ROOT=$1
+    # Optional. If set, should be a colon-separated string of brand:model to be
+    # used for the image's model assertion
+    local CUSTOM_BRAND_MODEL=${2:-generic:generic-classic}
+
+    snap_prepare_assertions "$CHROOT_ROOT" "$CUSTOM_BRAND_MODEL"
+}
+
+snap_validate_seed() {
+    local CHROOT_ROOT=$1
+    local kern_major_min=undefined
+    local boot_filename=undefined
+
+    # ppc64el still uses /boot/vmlinux so we need to determine the boot file name as non ppc64el use /boot/vmlinuz
+    # We don't need to query the arch as we can use existence of the file to determine the boot file name. Both
+    # will never be present at the same time.
+    if [ -e ${CHROOT_ROOT}/boot/vmlinuz ]; then
+        boot_filename=vmlinuz
+    elif [ -e ${CHROOT_ROOT}/boot/vmlinux ]; then
+        boot_filename=vmlinux
+    fi
+    if [ ${boot_filename} != undefined ]; then  # we have a known boot file so we can proceed with checking for features to mount
+        kern_major_min=$(readlink --canonicalize --no-newline ${CHROOT_ROOT}/boot/${boot_filename} | grep  --extended-regexp --only-matching --max-count 1 '[0-9]+\.[0-9]+')
+        if [ -d ../../apparmor/${kern_major_min} ]; then
+            # if an Ubuntu version has different kernel apparmor features between LTS and HWE kernels
+            # a snap pre-seeding issue can occur, where the incorrect apparmor features are reported
+            # basic copy of a directory structure overriding the "generic" feature set
+            # which is tied to the LTS kernel
+
+            # Bind kernel apparmor directory to feature directory for snap preseeding
+            umount "${CHROOT_ROOT}/sys/kernel/security/apparmor/features/"
+            mount --bind ../../apparmor/${kern_major_min} "${CHROOT_ROOT}/sys/kernel/security/apparmor/features/"
+        fi
+    fi
+
+    if [ -e "${CHROOT_ROOT}/var/lib/snapd/seed/seed.yaml" ]; then
+        snap debug validate-seed "${CHROOT_ROOT}/var/lib/snapd/seed/seed.yaml"
+        /usr/lib/snapd/snap-preseed --reset $(realpath "${CHROOT_ROOT}")
+        /usr/lib/snapd/snap-preseed $(realpath "${CHROOT_ROOT}")
+        chroot "${CHROOT_ROOT}" apparmor_parser --skip-read-cache --write-cache --skip-kernel-load --verbose  -j `nproc` /etc/apparmor.d
+    fi
+
+    # Unmount kernel specific apparmor feature
+    # mount generic apparmor feature again (cleanup)
+    if [ -d /build/config/hooks.d/extra/apparmor/${kern_major_min} ]; then
+        umount "${CHROOT_ROOT}/sys/kernel/security/apparmor/features/"
+        mount -o bind ../../apparmor/generic "${CHROOT_ROOT}/sys/kernel/security/apparmor/features/"
+    fi
+
+}
+
+release_ver() {
+    # Return the release version number
+    distro-info --series="$LB_DISTRIBUTION" -r | awk '{ print $1 }'
+}
+
+snap_preseed() {
+    # Preseed a snap in the image (snap_prepare must be called once prior)
+    local CHROOT_ROOT=$1
+    # $2 can be in the form of snap_name/classic=track/risk/branch
+    local SNAP=$2
+    # strip CHANNEL specification
+    SNAP=${SNAP%=*}
+    # strip /classic confinement
+    local SNAP_NAME=${SNAP%/*}
+
+    # For snap preseed to work, we need to ensure that fuse3 is installed in the chroot.
+    # fuse3 is a recommends of snapd but if this is a minimized image then recommends are not installed
+    # and preseeding will fail.
+    chroot "${CHROOT_ROOT}" apt-get install --assume-yes --no-install-recommends fuse3 xdelta3 distro-info
+
+    # Seed from the specified channel (e.g. core18 latest/stable)
+    # Or Channel endcoded in the snap name (e.g. lxd=4.0/stable/ubuntu-20.04)
+    # Or Ubuntu policy default channel latest/stable/ubuntu-$(release_ver)
+    local CHANNEL=${3:-}
+    if [ -z "$CHANNEL" ]; then
+        case $2 in
+            *=*)
+                CHANNEL=${2#*=}
+                ;;
+            *)
+                CHANNEL="stable/ubuntu-$(release_ver)"
+                ;;
+        esac
+    fi
+
+    # At this point:
+    # SNAP_NAME is just the snap name
+    # SNAP is either $SNAP_NAME or $SNAP_NAME/classic for classic confined
+    # CHANNEL is the channel
+
+    if [ ! -e "$CHROOT_ROOT/var/lib/snapd/seed/assertions/model" ]; then
+        echo "ERROR: Snap model assertion not present, snap_prepare must be called"
+        exit 1
+    fi
+
+    _snap_preseed $CHROOT_ROOT $SNAP $CHANNEL
+
+    # Mark this image as having snapd installed explicitly.
+    case $SNAP_NAME in
+        snapd)
+            touch "$CHROOT_ROOT/var/lib/snapd/seed/.snapd-explicit-install-stamp"
+            ;;
+    esac
+
+    # Do basic validation of generated snapd seed.yaml, doing it here
+    # means we catch all the places(tm) that snaps are added but the
+    # downside is that each time a snap is added the seed must be valid,
+    # i.e. snaps with bases need to add bases first etc
+    #
+    # Skip validation by setting SNAP_NO_VALIDATE_SEED=1.
+    if [ -z "${SNAP_NO_VALIDATE_SEED:-}" ]; then
+        snap_validate_seed "${CHROOT_ROOT}"
+    fi
+}
+
+preinstall_snaps() {
+	setup_mountpoint chroot
+
+	snap_prepare chroot
+
+	for snap in "$@"; do
+		SNAP_NO_VALIDATE_SEED=1 snap_preseed chroot "${snap}"
+	done
+
+	snap_validate_seed chroot
+
+	teardown_mountpoint chroot
+}
+
+# When running update-grub in a chroot on a build host, we don't want it to
+# probe for disks or probe for other installed OSes.  Extract common
+# diversion wrappers, so this isn't reinvented differently for each image.
+divert_grub() {
+	CHROOT_ROOT="$1"
+
+	# Don't divert all of grub-probe here; just the scripts we don't want
+	# running. Otherwise, you may be missing part-uuids for the search
+	# command, for example. ~cyphermox
+
+	chroot "$CHROOT_ROOT" dpkg-divert --local \
+		--divert /etc/grub.d/30_os-prober.dpkg-divert \
+		--rename /etc/grub.d/30_os-prober
+
+	# Divert systemd-detect-virt; /etc/kernel/postinst.d/zz-update-grub
+	# no-ops if we are in a container, and the launchpad farm runs builds
+	# in lxd.  We therefore pretend that we're never in a container (by
+	# exiting 1).
+	chroot "$CHROOT_ROOT" dpkg-divert --local \
+		--rename /usr/bin/systemd-detect-virt
+	echo "exit 1" > "$CHROOT_ROOT"/usr/bin/systemd-detect-virt
+	chmod +x "$CHROOT_ROOT"/usr/bin/systemd-detect-virt
+}
+
+undivert_grub() {
+	CHROOT_ROOT="$1"
+
+	chroot "$CHROOT_ROOT" dpkg-divert --remove --local \
+		--divert /etc/grub.d/30_os-prober.dpkg-divert \
+		--rename /etc/grub.d/30_os-prober
+
+	if grep -q "^exit 1$" "$CHROOT_ROOT"/usr/bin/systemd-detect-virt; then
+		rm "$CHROOT_ROOT"/usr/bin/systemd-detect-virt
+	fi
+	chroot "$CHROOT_ROOT" dpkg-divert --remove --local \
+		--rename /usr/bin/systemd-detect-virt
+}
+
+divert_update_initramfs () {
+    Chroot chroot "dpkg-divert --quiet --add \
+		--divert /usr/sbin/update-initramfs.REAL --rename \
+		/usr/sbin/update-initramfs"
+	cat > chroot/usr/sbin/update-initramfs <<'EOF'
+#! /bin/sh
+if [ $# != 1 ] || [ "$1" != -u ]; then
+	exec update-initramfs.REAL "$@"
+fi
+echo "update-initramfs: diverted by live-build (will be called later)" >&2
+
+exit 0
+EOF
+	chmod +x chroot/usr/sbin/update-initramfs
+}
+
+undivert_update_initramfs () {
+	rm -f chroot/usr/sbin/update-initramfs
+	Chroot chroot "dpkg-divert --quiet --remove --rename \
+		/usr/sbin/update-initramfs"
+}
+
+rm -f binary.success
+(
+    ec=0
+	lb bootstrap "$@" || ec=$?
+	if [ $ec -ne 0 ] ; then
+		if [ ! -f chroot/debootstrap/debootstrap.log ] ; then
+			echo "debootstrap.log not found"
+			exit $ec
+		fi
+
+		echo "################# BEGIN debootstrap.log ################"
+		cat chroot/debootstrap/debootstrap.log
+		echo "################### END debootstrap.log ################"
+		exit $ec
+	fi
+
+	# Set locale to C.UTF-8 by default.  This may be overridden later.
+	echo "LANG=C.UTF-8" > chroot/etc/default/locale
+
+	divert_grub chroot
+    divert_update_initramfs
+    lb chroot "$@"
+    undivert_update_initramfs
+    undivert_grub chroot
+
+    if [ -e "config/seeded-snaps" ]; then
+        snap_list=$(cat config/seeded-snaps)
+        preinstall_snaps $snap_list
+    fi
+
+    lb binary "$@"
+
+    touch binary.success
+) 2>&1 | tee binary.log
