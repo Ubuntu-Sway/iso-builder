@@ -38,15 +38,14 @@ if [ "$dist" == "Debian" ]; then
   apt-get install -y binutils patch zstd live-build xdelta3
   dpkg -i ./debs/ubuntu-keyring*.deb ./debs/distro-info*.deb ./debs/distro-info-data*.deb ./debs/snap*.deb
 else
-  apt-get install -y binutils patch zstd debootstrap xz-utils snapd perl ubuntu-keyring xdelta3
-  apt install -y ./debs/live-build*.deb
+  apt-get install -y binutils patch zstd debootstrap live-build xz-utils snapd perl ubuntu-keyring xdelta3
 fi
 }
 
 # Increase number of blocks for creating efi.img.
 # This prevents error with "Disk full" on the lb binary_grub-efi stage
-patch -R -d /usr/lib/live/build/ < increase_number_of_blocks.patch
-patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
+#patch -R -d /usr/lib/live/build/ < increase_number_of_blocks.patch
+#patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
 
 # Enable Noble build in debootstrap
 #ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/noble
