@@ -11,7 +11,22 @@ else
     KERNEL_FLAVORS="generic"
 fi
 
-HOOKS="update-apt-file-cache update-apt-xapian-index update-mlocate-database remove-dbus-machine-id remove-openssh-server-host-keys remove-udev-persistent-rules"
+add_chroot_hook ()
+{
+	CHROOT_HOOKS="${CHROOT_HOOKS:+$CHROOT_HOOKS }$1"
+}
+
+add_binary_hook ()
+{
+	BINARY_HOOKS="${BINARY_HOOKS:+$BINARY_HOOKS }$1"
+}
+
+add_chroot_hook update-apt-file-cache
+add_chroot_hook update-apt-xapian-index
+add_chroot_hook update-mlocate-database
+add_chroot_hook remove-dbus-machine-id
+add_chroot_hook remove-openssh-server-host-keys
+add_chroot_hook remove-udev-persistent-rules
 
 lb config noauto \
     --architecture "$ARCH" \
@@ -21,7 +36,6 @@ lb config noauto \
     --build-with-chroot false \
     --linux-flavours "$KERNEL_FLAVORS" \
     --distribution "$BASECODENAME" \
-    --hooks "$HOOKS" \
     --iso-application "$NAME" \
     --iso-volume "$NAME" \
     --memtest none \
@@ -29,6 +43,11 @@ lb config noauto \
     --parent-archive-areas "main restricted universe multiverse" \
     --source false \
     --zsync false
+
+echo "LB_CHROOT_HOOKS=\"$CHROOT_HOOKS\"" >> config/chroot
+echo "LB_BINARY_HOOKS=\"$BINARY_HOOKS\"" >> config/binary
+echo "IMAGEFORMAT=\"$IMAGEFORMAT\"" >> config/chroot
+echo "LB_DISTRIBUTION=\"$BASECODENAME\"" >> config/binary
 
 # replace channel and suite
 sed -i "s/@CHANNEL/$CHANNEL/" config/archives/*.list*
