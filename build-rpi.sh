@@ -26,7 +26,7 @@ export architecture="arm64"
 export codename="noble"
 export channel="stable"
 
-version=24.04
+version=24.04.1
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
