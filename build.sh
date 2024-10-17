@@ -26,14 +26,14 @@ echo -e "
 #----------------------#
 "
 
-# Use system live-build if running on Debian
 apt-get update && apt-get install -y lsb-release
 
 dist="$(lsb_release -i -s)"
 
 if [ "$dist" == "Debian" ]; then
-  apt-get install -y binutils patch zstd live-build
+  apt-get install -y binutils patch zstd
   dpkg -i ./debs/ubuntu-keyring*.deb
+  dpkg -i ./debs/live-build*.deb
 else
   apt-get install -y binutils patch zstd debootstrap
   dpkg -i ./debs/*.deb
