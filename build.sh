@@ -26,17 +26,17 @@ echo -e "
 #----------------------#
 "
 
-apt-get update && apt-get install -y lsb-release
+apt update && apt install -y lsb-release
 
 dist="$(lsb_release -i -s)"
 
 if [ "$dist" == "Debian" ]; then
-  apt-get install -y binutils patch zstd
-  dpkg -i ./debs/ubuntu-keyring*.deb
-  dpkg -i ./debs/live-build*.deb
+  apt install -y binutils patch zstd
+  apt install -y ./debs/ubuntu-keyring*.deb
+  apt install -y ./debs/live-build*.deb
 else
-  apt-get install -y binutils patch zstd debootstrap
-  dpkg -i ./debs/*.deb
+  apt install -y binutils patch zstd debootstrap
+  apt install -y ./debs/*.deb
 fi
 
 # Increase number of blocks for creating efi.img.
