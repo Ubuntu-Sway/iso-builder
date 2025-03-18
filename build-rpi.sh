@@ -23,10 +23,10 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
-export codename="oracular"
-export channel="stable"
+export codename="plucky"
+export channel="testing"
 
-version=24.10
+version=25.04
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
