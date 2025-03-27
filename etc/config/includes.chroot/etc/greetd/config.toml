@@ -7,4 +7,4 @@ user = "_greetd"
  
 [initial_session]
 command = "start-sway"
-user = "ubuntu"
+user = "ubuntu-sway"
