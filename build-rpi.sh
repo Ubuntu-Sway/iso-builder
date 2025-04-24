@@ -24,7 +24,7 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
 export codename="plucky"
-export channel="testing"
+export channel="dev"
 
 version=25.04
 YYYYMMDD="$(date +%Y%m%d)"
@@ -93,7 +93,7 @@ sed -i "s/@BASECODENAME/$codename/" ubuntusway-$architecture/etc/apt/preferences
 echo "ubuntusway" > ubuntusway-$architecture/etc/hostname
 
 cat << EOF > ubuntusway-${architecture}/etc/hosts
-127.0.0.1       ubuntusway    localhost
+127.0.0.1       ubuntu-sway    localhost
 ::1             localhost ip6-localhost ip6-loopback
 fe00::0         ip6-localnet
 ff00::0         ip6-mcastprefix
@@ -148,7 +148,6 @@ apt-get -y install linux-image-raspi linux-firmware-raspi \
 pi-bluetooth upower \
 calamares-settings-ubuntu-sway-raspi
 apt-get -y install --no-install-recommends raspi-config
-systemctl disable raspi-config
 rm -f hardware
 EOF
 
