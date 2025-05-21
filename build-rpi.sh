@@ -24,7 +24,7 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
 export codename="plucky"
-export channel="dev"
+export channel="stable"
 
 version=25.04
 YYYYMMDD="$(date +%Y%m%d)"
