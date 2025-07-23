@@ -23,10 +23,10 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
-export codename="plucky"
-export channel="stable"
+export codename="questing"
+export channel="dev"
 
-version=25.04
+version=25.10
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
@@ -51,8 +51,8 @@ echo -e "
 mkdir -p "${basedir}"
 cd "${basedir}"
 
-# Enable Noble build in debootstrap
-ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/plucky
+# Enable Questing build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/questing
 
 debootstrap \
     --arch $architecture \
