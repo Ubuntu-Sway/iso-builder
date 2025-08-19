@@ -26,7 +26,7 @@ export architecture="arm64"
 export codename="plucky"
 export channel="stable"
 
-version=25.04
+version=25.04.1
 YYYYMMDD="$(date +%Y%m%d)"
 imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
