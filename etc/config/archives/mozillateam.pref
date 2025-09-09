@@ -1,7 +1,3 @@
-Package: firefox*
-Pin: release o=LP-PPA-mozillateam
-Pin-Priority: 501
-
-Package: thunderbird*
-Pin: release o=LP-PPA-mozillateam
-Pin-Priority: 501
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000

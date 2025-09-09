@@ -1,1 +1,1 @@
-deb https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu @BASECODENAME main
+deb https://packages.mozilla.org/apt mozilla main
