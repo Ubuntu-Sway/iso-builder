@@ -24,7 +24,7 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
 export codename="questing"
-export channel="dev"
+export channel="stable"
 
 version=25.10
 YYYYMMDD="$(date +%Y%m%d)"
@@ -62,7 +62,7 @@ debootstrap \
     $codename ubuntusway-$architecture http://ports.ubuntu.com/ubuntu-ports
 
 # Add the QEMU emulator for running ARM executables
-cp /usr/bin/qemu-arm-static ubuntusway-$architecture/usr/bin/
+cp /usr/bin/qemu-arm64-static ubuntusway-$architecture/usr/bin/
 
 # Run the second stage of the bootstrap in QEMU
 LANG=C.UTF-8 chroot ubuntusway-$architecture /debootstrap/debootstrap --second-stage
