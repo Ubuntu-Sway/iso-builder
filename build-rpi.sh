@@ -62,13 +62,13 @@ debootstrap \
     $codename ubuntusway-$architecture http://ports.ubuntu.com/ubuntu-ports
 
 # Add the QEMU emulator for running ARM executables
-cp /usr/bin/qemu-arm64-static ubuntusway-$architecture/usr/bin/
+cp -v /usr/bin/qemu-arm64-static ubuntusway-$architecture/usr/bin/
 
 # Run the second stage of the bootstrap in QEMU
 LANG=C.UTF-8 chroot ubuntusway-$architecture /debootstrap/debootstrap --second-stage
 
 # Copy Raspberry Pi specific files
-cp -r "${rootdir}"/rpi/rootfs/writable/* ubuntusway-${architecture}/
+cp -rv "${rootdir}"/rpi/rootfs/writable/* ubuntusway-${architecture}/
 
 # Add the rest of the ubuntu repos
 cat << EOF > ubuntusway-$architecture/etc/apt/sources.list
