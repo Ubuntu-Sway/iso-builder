@@ -27,7 +27,7 @@ Build Raspberry Pi image:
     docker run --privileged -i -v /proc:/proc \
         -v ${PWD}:/working_dir \
         -w /working_dir \
-        ubuntu:22.04 \
+        ubuntu:24.04 \
         ./build-rpi.sh
 
 
