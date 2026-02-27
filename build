@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Where we are
+BASE_DIR="$PWD"
+
+# Build directory
+TMP_DIR="$BASE_DIR/tmp"
+
+# Output directory
+BUILDS_DIR="$BASE_DIR/builds"
+
+# Get config
+CONFIG_FILE="options"
+source "$BASE_DIR"/"$CONFIG_FILE"
+
+# Repo channel
+CHANNEL=
+
+# Release variant
+RELEASE=
+
+# Needs for lb config script
+export CHANNEL
+
+# check for root permissions
+if [[ "$(id -u)" != 0 ]]; then
+  echo "E: Requires root permissions" > /dev/stderr
+  exit 1
+fi
+
+# List of available options
+show_help() {
+    echo "Using: $0 [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  --release <release_variant>  Release variant (stable, beta, testing)"
+    echo "  --help                       Shows this message"
+    echo
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --release)
+            RELEASE="$2"
+            shift 2
+            ;;
+        --help)
+            show_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
+case "$RELEASE" in
+  stable|beta|testing)
+    ;;
+  *)
+    echo "Error; Invalid value for --release!"
+    show_help
+    ;;
+esac
+
+if [ "$RELEASE" == stable ]; then
+  CHANNEL="stable"
+elif [ "$RELEASE" == beta ]; then
+  # Beta releases use stable repo channel
+  CHANNEL="stable"
+elif [ "$RELEASE" == testing ]; then
+  CHANNEL="testing"
+fi
+
+# Check required dependencies (on Debian or Ubuntu)
+check_deps() {
+  apt update -y && apt install -y lsb-release
+
+  dist="$(lsb_release -i -s)"
+
+  if [ "$dist" == "Debian" ]; then
+    apt install -y binutils patch zstd live-build
+    apt install -y ./debs/ubuntu-keyring*.deb
+  else
+    apt install -y binutils patch zstd debootstrap
+    apt install -y ./debs/*.deb
+  fi
+}
+
+# Cleanup build environment
+cleanup() {
+    lb clean
+    rm -rf "$TMP_DIR"
+}
+
+# live-build ISO building
+build() {
+
+      echo -e "
+#------------------#
+# START BUILD #
+#------------------#
+"
+
+    # Increase number of blocks for creating efi.img.
+    # This prevents error with "Disk full" on the lb binary_grub-efi stage
+    patch -d /usr/lib/live/build/ < increase_number_of_blocks.patch
+
+    # Enable Resolute build in debootstrap
+    ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/resolute
+
+    if [ -d "$TMP_DIR" ]; then
+      rm -rf "$TMP_DIR"
+      mkdir -p "$TMP_DIR/$ARCH"
+    else
+      mkdir -p "$TMP_DIR/$ARCH"
+    fi
+
+    # remove old configs and copy over new
+    rm -rf config auto
+    cp -vr "$BASE_DIR"/auto .
+    cp -vr "$BASE_DIR"/config .
+    # Make sure conffile specified as arg has correct name
+    cp -vf "$BASE_DIR"/"$CONFIG_FILE" options
+
+    # Symlink chosen package lists to where live-build will find them
+    ln -s "package-lists.$PACKAGE_LISTS_SUFFIX" "config/package-lists"
+
+    # Configure build
+    lb config
+
+    # Start build
+    lb build
+}
+
+# Make the final ISO
+make_iso() {
+
+      echo -e "
+#---------------------------#
+# MOVE OUTPUT TO BUILDS DIR #
+#---------------------------#
+"
+    YYYYMMDD="$(date +%Y%m%d%H%M)"
+    OUTPUT_DIR="$BUILDS_DIR/$ARCH"
+    mkdir -p "$OUTPUT_DIR"
+
+    if [ "$RELEASE" == testing ]; then
+      FNAME="ubuntusway-$VERSION-$CHANNEL-$YYYYMMDD-$OUTPUT_SUFFIX-$ARCH"
+    elif [ "$RELEASE" == beta ]; then
+      FNAME="ubuntusway-$VERSION-beta-$OUTPUT_SUFFIX-$ARCH"
+    elif [ "$RELEASE" == stable ]; then
+      FNAME="ubuntusway-$VERSION-$OUTPUT_SUFFIX-$ARCH"
+    fi
+
+    mv "$TMP_DIR/$ARCH/live-image-$ARCH.hybrid.iso" "$OUTPUT_DIR/${FNAME}.iso"
+    md5sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.md5.txt"
+    sha256sum "$OUTPUT_DIR/${FNAME}.iso" > "$OUTPUT_DIR/${FNAME}.sha256.txt"
+}
+
+# remove old builds before creating new ones
+rm -rf "$BUILDS_DIR"
+
+check_deps
+cleanup
+build
+make_iso
+cleanup

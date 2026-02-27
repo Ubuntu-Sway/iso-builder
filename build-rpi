@@ -23,8 +23,8 @@ basedir=$(pwd)/artifacts/ubuntusway-rpi
 
 export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
 export architecture="arm64"
-export codename="questing"
-export channel="stable"
+export codename="resolute"
+export channel="dev"
 
 version=25.10
 YYYYMMDD="$(date +%Y%m%d)"

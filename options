@@ -2,23 +2,16 @@
 ARCH="amd64"
 
 # base codename
-BASECODENAME="questing"
+BASECODENAME="resolute"
 
 # base version
-BASEVERSION="25.10"
+BASEVERSION="26.04"
 
 # distribution codename
-CODENAME="questing"
+CODENAME="resolute"
 
 # distribution version
-VERSION="25.10"
-
-# distribution channel
-CHANNEL="stable"
-#CHANNEL="dev"
-
-# Beta release
-BETA="false"
+VERSION="26.04"
 
 # distribution name
 NAME="Ubuntu Sway Remix"
