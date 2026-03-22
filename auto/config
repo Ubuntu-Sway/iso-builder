@@ -2,7 +2,7 @@
 
 set -e
 
-. ./terraform.conf
+. ./options
 
 # HWE starts with y, Y or 1?
 if [ "$HWE" = "yes" ]; then
