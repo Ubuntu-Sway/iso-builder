@@ -72,7 +72,7 @@ elif [ "$RELEASE" == beta ]; then
   # Beta releases use stable repo channel
   CHANNEL="stable"
 elif [ "$RELEASE" == testing ]; then
-  CHANNEL="testing"
+  CHANNEL="dev"
 fi
 
 # Check required dependencies (on Debian or Ubuntu)
