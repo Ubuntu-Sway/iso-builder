@@ -115,6 +115,8 @@ build() {
       mkdir -p "$TMP_DIR/$ARCH"
     fi
 
+    cd "$TMP_DIR/$ARCH" || exit
+
     # remove old configs and copy over new
     rm -rf config auto
     cp -vr "$BASE_DIR"/auto .
