@@ -183,7 +183,6 @@ main() {
     echo "Name: $NAME"
     echo "Version: $VERSION"
     echo "Channel: $CHANNEL"
-    echo "XORG_HWE: $XORG_HWE"
 
     # Setup build environment
     detect_host_arch
