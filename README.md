@@ -12,29 +12,21 @@ Clone this project & cd into it:
 
     git clone https://github.com/Ubuntu-Sway/iso-builder && cd iso-builder
 
-Configure the channel in the etc/terraform.conf (unstable, stable).
+Configure the channel in the `options` (dev, stable).
 
-Run the build:
+To build image for `amd64` architecure:
 
     docker run --privileged -i -v /proc:/proc \
         -v ${PWD}:/working_dir \
         -w /working_dir \
-        debian:latest \
-        /bin/bash -s etc/terraform.conf < build.sh
+        debian:trixie \
+        ./build --arch amd64 --release stable
+        
+See `build --help` for available options.
 
 Build Raspberry Pi image:
 
-    docker run --privileged -i -v /proc:/proc \
-        -v ${PWD}:/working_dir \
-        -w /working_dir \
-        ubuntu:24.04 \
-        ./build-rpi.sh
+        ./build-rpi --release stable
 
 
-When done, your image will be in the builds folder.
-
-
-
-## Further Information
-
-More information about the concepts behind `live-build` and the technical decisions made to arrive at this set of tools to build an .iso can be found [on the wiki](https://github.com/elementary/os/wiki/Building-iso-Images).
+When done, your image will be in the `builds` folder. The Raspberry Pi images will be placed in `artifacts` folder.

@@ -1,62 +1,205 @@
-#!/bin/sh
+#!/bin/bash
 
-set -e
+set -euo pipefail
 
-. ./options
+readonly CONFIG_FILE="options"
 
-# HWE starts with y, Y or 1?
-if [ "$HWE" = "yes" ]; then
-    KERNEL_FLAVORS="generic-hwe-${BASEVERSION}"
-else
-    KERNEL_FLAVORS="generic"
-fi
+OPTS=""
 
-lb config noauto \
-    --architectures "$ARCH" \
-    --mode debian \
-    --initramfs none \
-    --distribution "$BASECODENAME" \
-    --parent-distribution "$BASECODENAME" \
-    --archive-areas "main restricted universe multiverse" \
-    --parent-archive-areas "main restricted universe multiverse" \
-    --linux-packages linux-image \
-    --linux-flavours "$KERNEL_FLAVORS" \
-    --bootappend-live "boot=casper username=ubuntu-sway hostname=ubuntu-sway quiet splash" \
-    --mirror-bootstrap "$MIRROR_URL" \
-    --parent-mirror-bootstrap "$MIRROR_URL" \
-    --mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
-    --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
-    --mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
-    --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
-    --apt-source-archives false \
-    --mirror-binary "$MIRROR_URL" \
-    --parent-mirror-binary "$MIRROR_URL" \
-    --keyring-packages ubuntu-keyring \
-    --apt-options "--yes --option Acquire::Retries=5 --option Acquire::http::Timeout=100" \
-    --cache-packages false \
-    --checksums md5 \
-    --uefi-secure-boot enable \
-    --binary-images iso-hybrid \
-    --iso-application "$NAME" \
-    --iso-volume "$NAME" \
-    --firmware-binary false \
-    --firmware-chroot false \
-    --zsync false \
-    --security true \
-    --updates true \
-    --debootstrap-options="--extractor=ar --include=lsb-release --verbose" \
-    "${@}"
+die() {
+    echo "E: $*" >&2
+    exit 1
+}
 
-# replace channel and suite
-sed -i "s/@CHANNEL/$CHANNEL/" config/archives/*.list*
-sed -i "s/@BASECODENAME/$BASECODENAME/" config/archives/*.list*
+section_header() {
+    echo -e "\n#----------------------#"
+    echo "# $1 #"
+    echo "#----------------------#\n"
+}
 
-DATE=$(date +%Y%m%d)
-sed -i "s/@CHANNEL/$CHANNEL/" config/includes.binary/.disk/info
-sed -i "s/@CODENAME/$CODENAME/" config/includes.binary/.disk/info
-sed -i "s/@ARCH/$ARCH/" config/includes.binary/.disk/info
-sed -i "s/@DISTRO_NAME/$NAME/" config/includes.binary/.disk/info
-sed -i "s/@VERSION/$VERSION/" config/includes.binary/.disk/info
-sed -i "s/@DATE/$DATE/" config/includes.binary/.disk/info
+load_config() {
+    # Load configuration from options file
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        die "Configuration file '$CONFIG_FILE' not found"
+    fi
 
-sed -i "s/@XORG_HWE/$XORG_HWE/" config/package-lists/desktop.list.chroot_install
+    # shellcheck source=/dev/null
+    . "./$CONFIG_FILE"
+
+    # Validate required variables
+    local required_vars=("ARCH" "BASEVERSION" "BASECODENAME" "CODENAME"
+                        "HWE" "NAME" "VERSION" "CHANNEL")
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            die "Required variable '$var' is not set in $CONFIG_FILE"
+        fi
+    done
+}
+
+detect_host_arch() {
+    local host_arch
+    host_arch="$(uname -m)"
+
+    section_header "HOST ARCHITECTURE"
+    echo "Host architecture: $host_arch"
+
+    # Use qemu emulation if building on x86_64 host for arm64 target
+    if [[ "$host_arch" == "amd64" ]] && [[ "$ARCH" == "arm64" ]]; then
+        OPTS="--bootstrap-qemu-arch arm64 --bootstrap-qemu-static '/usr/bin/qemu-aarch64-static'"
+        echo "QEMU emulation enabled for ARM64 build"
+    else
+        echo "Native build (no QEMU emulation needed)"
+    fi
+}
+
+set_kernel_flavors() {
+    # Determine kernel flavors based on HWE setting
+    if [[ "${HWE,,}" =~ ^(yes|y|1)$ ]]; then
+        KERNEL_FLAVORS="generic-hwe-${BASEVERSION}"
+    else
+        KERNEL_FLAVORS="generic"
+    fi
+
+    echo "Kernel flavors: $KERNEL_FLAVORS"
+}
+
+set_mirrors() {
+    # Set mirror URLs based on architecture
+    case "$ARCH" in
+        amd64)
+            MIRROR_URL="http://archive.ubuntu.com/ubuntu/"
+            MIRROR_BINARY_URL="http://archive.ubuntu.com/ubuntu/"
+            MIRROR_BINARY_SECURITY_URL="http://security.ubuntu.com/ubuntu/"
+            ;;
+        arm64)
+            MIRROR_URL="http://ports.ubuntu.com/ubuntu-ports/"
+            MIRROR_BINARY_URL="http://ports.ubuntu.com/ubuntu-ports/"
+            MIRROR_BINARY_SECURITY_URL="http://ports.ubuntu.com/ubuntu-ports/"
+            ;;
+        *)
+            die "Unsupported architecture: $ARCH (must be amd64 or arm64)"
+            ;;
+    esac
+
+    echo "Using mirrors for $ARCH"
+}
+
+configure_lb() {
+    section_header "LIVE-BUILD CONFIGURATION"
+
+    lb config noauto \
+        --architectures "$ARCH" \
+        --mode debian \
+        --initramfs none \
+        --bootloaders grub-efi \
+        --distribution "$BASECODENAME" \
+        --parent-distribution "$BASECODENAME" \
+        --archive-areas "main restricted universe multiverse" \
+        --parent-archive-areas "main restricted universe multiverse" \
+        --linux-packages linux-image \
+        --linux-flavours "$KERNEL_FLAVORS" \
+        --bootappend-live "boot=casper username=ubuntu-sway hostname=ubuntu-sway quiet splash" \
+        --mirror-bootstrap "$MIRROR_URL" \
+        --parent-mirror-bootstrap "$MIRROR_URL" \
+        --mirror-chroot-security "$MIRROR_BINARY_SECURITY_URL" \
+        --parent-mirror-chroot-security "$MIRROR_BINARY_SECURITY_URL" \
+        --mirror-binary-security "$MIRROR_BINARY_SECURITY_URL" \
+        --parent-mirror-binary-security "$MIRROR_BINARY_SECURITY_URL" \
+        --apt-source-archives false \
+        --mirror-binary "$MIRROR_BINARY_URL" \
+        --parent-mirror-binary "$MIRROR_BINARY_URL" \
+        --keyring-packages ubuntu-keyring \
+        --apt-options "--yes --option Acquire::Retries=5 --option Acquire::http::Timeout=100" \
+        --cache-packages false \
+        --checksums md5 \
+        --uefi-secure-boot enable \
+        --binary-images iso-hybrid \
+        --iso-application "$NAME" \
+        --iso-volume "$NAME" \
+        --firmware-binary false \
+        --firmware-chroot false \
+        --zsync false \
+        --security true \
+        --updates true \
+        --debootstrap-options="--extractor=ar --include=lsb-release --verbose" \
+        "$OPTS" \
+        "$@" || die "lb config failed"
+
+    echo "Live-build configuration completed"
+}
+
+update_archive_files() {
+    section_header "UPDATE ARCHIVE FILES"
+
+    # Update channel and suite in archive files
+    if [[ -d "config/archives" ]]; then
+        local archive_files=("config/archives"/*.list*)
+        if [[ ${#archive_files[@]} -gt 0 ]] && [[ -e "${archive_files[0]}" ]]; then
+            sed -i "s/@CHANNEL/$CHANNEL/g" config/archives/*.list* 2>/dev/null || true
+            sed -i "s/@BASECODENAME/$BASECODENAME/g" config/archives/*.list* 2>/dev/null || true
+            echo "Updated archive files with CHANNEL=$CHANNEL and BASECODENAME=$BASECODENAME"
+        fi
+    fi
+}
+
+update_disk_info() {
+    section_header "UPDATE DISK INFORMATION"
+
+    local date
+    date="$(date +%Y%m%d)"
+    local disk_info_file="config/includes.binary/.disk/info"
+
+    if [[ -f "$disk_info_file" ]]; then
+        sed -i "s/@CHANNEL/$CHANNEL/" "$disk_info_file"
+        sed -i "s/@CODENAME/$CODENAME/" "$disk_info_file"
+        sed -i "s/@ARCH/$ARCH/" "$disk_info_file"
+        sed -i "s/@DISTRO_NAME/$NAME/" "$disk_info_file"
+        sed -i "s/@VERSION/$VERSION/" "$disk_info_file"
+        sed -i "s/@DATE/$date/" "$disk_info_file"
+
+        echo "Updated disk information file: $disk_info_file"
+        echo "  CHANNEL: $CHANNEL"
+        echo "  CODENAME: $CODENAME"
+        echo "  ARCH: $ARCH"
+        echo "  DISTRO_NAME: $NAME"
+        echo "  VERSION: $VERSION"
+        echo "  DATE: $date"
+    else
+        echo "Warning: Disk info file not found: $disk_info_file"
+    fi
+}
+
+main() {
+    # Load configuration first
+    load_config
+
+    # Display build information
+    section_header "BUILD CONFIGURATION"
+    echo "Architecture: $ARCH"
+    echo "Base version: $BASEVERSION"
+    echo "Base codename: $BASECODENAME"
+    echo "Codename: $CODENAME"
+    echo "HWE: $HWE"
+    echo "Name: $NAME"
+    echo "Version: $VERSION"
+    echo "Channel: $CHANNEL"
+    echo "XORG_HWE: $XORG_HWE"
+
+    # Setup build environment
+    detect_host_arch
+    set_kernel_flavors
+    set_mirrors
+
+    # Configure live-build
+    configure_lb "$@"
+
+    # Update configuration files with actual values
+    update_archive_files
+    update_disk_info
+
+    section_header "CONFIGURATION COMPLETE"
+    echo "Live-build configuration successfully applied"
+}
+
+# Run main function
+main "$@"

@@ -1,6 +1,3 @@
-# target architecture - i386, amd64 or all
-ARCH="amd64"
-
 # base codename
 BASECODENAME="resolute"
 
@@ -15,9 +12,6 @@ VERSION="26.04"
 
 # distribution name
 NAME="Ubuntu Sway Remix"
-
-# mirror to fetch packages from
-MIRROR_URL="http://archive.ubuntu.com/ubuntu/"
 
 # use HWE kernel and packages?
 HWE="no"
