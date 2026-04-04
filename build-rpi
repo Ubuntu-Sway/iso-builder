@@ -1,142 +1,98 @@
 #!/bin/bash
-set -euo pipefail
 
-readonly ROOT_DIR="$PWD"
-readonly BASE_DIR="$ROOT_DIR/artifacts/ubuntusway-rpi"
-readonly CONFIG_FILE="options"
+set -e
 
-RELEASE=""
-CHANNEL=""
+# Install dependencies in host system
+echo -e "
+#----------------------#
+# INSTALL DEPENDENCIES #
+#----------------------#
+"
 
-die() {
-    echo "E: $*" >&2
-    exit 1
-}
+apt-get update
+apt-get install -y --no-install-recommends \
+debian-keyring ca-certificates debootstrap git \
+qemu-user-static qemu-utils qemu-system-arm binfmt-support \
+parted kpartx rsync dosfstools xz-utils whois
 
-show_help() {
-    cat << EOF
-Usage: $0 [OPTIONS]
+# Make sure cross-running ARM ELF executables is enabled
+update-binfmts --enable
 
-Options:
-  --release <variant>   Release variant (stable, beta, testing)
-  --help                Show this message
-EOF
-    exit 0
-}
+rootdir=$(pwd)
+basedir=$(pwd)/artifacts/ubuntusway-rpi
 
-validate_release() {
-    case "$1" in
-        stable|beta|testing) return 0 ;;
-        *) return 1 ;;
-    esac
-}
+export packages="ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard"
+export architecture="arm64"
+export codename="resolute"
+export channel="dev"
 
-set_channel() {
-    case "$RELEASE" in
-        stable) CHANNEL="stable" ;;
-        beta)   CHANNEL="stable" ;;
-        testing) CHANNEL="dev" ;;
-    esac
-}
+version=26.04
+YYYYMMDD="$(date +%Y%m%d)"
+imagename=ubuntusway-$version-$channel-rpi-$YYYYMMDD
 
-section_header() {
-    echo -e "\n#----------------------#"
-    echo "# $1 #"
-    echo "#----------------------#\n"
-}
+# Remove old builds before creating new one
+echo -e "
+#----------------------#
+# REMOVE OLD BUILDS    #
+#----------------------#
+"
 
-# Helper to run commands inside the container
-run_in_container() {
-    systemd-nspawn -D "$BASE_DIR/rpi-rootfs" "$@"
-}
+if [ -d $rootdir/artifacts ]; then
+	rm -rf $rootdir/artifacts
+fi
 
-# Helper for multi-line bash scripts
-run_in_container_bash() {
-    run_in_container bash -c "$1"
-}
+# Bootstrap an ubuntu minimal system
+echo -e "
+#----------------------#
+# BOOTSTRAP BASE SYSTEM #
+#----------------------#
+"
 
-check_deps() {
-    section_header "INSTALL DEPENDENCIES"
+mkdir -p "${basedir}"
+cd "${basedir}"
 
-    apt-get update || die "Failed to update package lists"
-    apt-get install -y --no-install-recommends \
-        debian-keyring ca-certificates debootstrap git \
-        qemu-user-static qemu-utils qemu-system-arm binfmt-support \
-        parted kpartx rsync dosfstools xz-utils whois \
-        systemd-container || die "Failed to install dependencies"
+# Enable Questing build in debootstrap
+ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/questing
 
-    update-binfmts --enable
-}
+debootstrap \
+    --arch $architecture \
+    --components=main,restricted,universe,multiverse \
+    --foreign \
+    --include=cloud-guest-utils \
+    $codename ubuntusway-$architecture http://ports.ubuntu.com/ubuntu-ports
 
-pre_cleanup() {
-    section_header "REMOVE OLD BUILDS"
+# Add the QEMU emulator for running ARM executables
+cp -v /usr/bin/qemu-arm64-static ubuntusway-$architecture/usr/bin/
 
-    if [[ -d "$ROOT_DIR/artifacts" ]]; then
-        rm -rf "$ROOT_DIR/artifacts"
-    fi
-}
+# Run the second stage of the bootstrap in QEMU
+LANG=C.UTF-8 chroot ubuntusway-$architecture /debootstrap/debootstrap --second-stage
 
-bootstrap() {
-    section_header "BOOTSTRAP BASE SYSTEM"
+# Copy Raspberry Pi specific files
+cp -rv "${rootdir}"/rpi/rootfs/writable/* ubuntusway-${architecture}/
 
-    mkdir -p "${BASE_DIR}"
-    cd "${BASE_DIR}" || die "Failed to enter BASE_DIR"
-
-    # Enable Resolute build in debootstrap
-    ln -sfn /usr/share/debootstrap/scripts/gutsy /usr/share/debootstrap/scripts/resolute
-
-    debootstrap \
-        --arch arm64 \
-        --components=main,restricted,universe,multiverse \
-        --foreign \
-        --include=cloud-guest-utils \
-        "$CODENAME" rpi-rootfs http://ports.ubuntu.com/ubuntu-ports || die "Debootstrap failed"
-
-    # Add QEMU emulator for running ARM executables
-    cp -v /usr/bin/qemu-arm64-static rpi-rootfs/usr/bin/ || die "Failed to copy QEMU"
-
-    # Run second stage of bootstrap
-    run_in_container /debootstrap/debootstrap --second-stage || die "Second stage bootstrap failed"
-
-    # Copy Raspberry Pi specific files
-    cp -rv "${ROOT_DIR}"/rpi/rootfs/writable/* rpi-rootfs/ || die "Failed to copy RPi files"
-
-    # Configure APT sources
-    cat << EOF > rpi-rootfs/etc/apt/sources.list
-deb http://ports.ubuntu.com/ubuntu-ports $CODENAME main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports $CODENAME-updates main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports $CODENAME-security main restricted universe multiverse
-deb http://ports.ubuntu.com/ubuntu-ports $CODENAME-backports main restricted universe multiverse
+# Add the rest of the ubuntu repos
+cat << EOF > ubuntusway-$architecture/etc/apt/sources.list
+deb http://ports.ubuntu.com/ubuntu-ports $codename main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports $codename-updates main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports $codename-security main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports $codename-backports main restricted universe multiverse
 EOF
 
-    # Copy UbuntuSway PPAs/keys/apt config
-    if [[ -d "${ROOT_DIR}"/config/archives ]]; then
-        for f in "${ROOT_DIR}"/config/archives/*.list; do
-            [[ -f "$f" ]] && cp -- "$f" "rpi-rootfs/etc/apt/sources.list.d/$(basename -- "$f")"
-        done
-        for f in "${ROOT_DIR}"/config/archives/*.key; do
-            [[ -f "$f" ]] && cp -- "$f" "rpi-rootfs/etc/apt/trusted.gpg.d/$(basename -- "$f").asc"
-        done
-        for f in "${ROOT_DIR}"/config/archives/*.pref; do
-            [[ -f "$f" ]] && cp -- "$f" "rpi-rootfs/etc/apt/preferences.d/$(basename -- "$f")"
-        done
-    fi
+# Copy in the ubuntusway PPAs/keys/apt config
+for f in "${rootdir}"/config/archives/*.list; do cp -- "$f" "ubuntusway-$architecture/etc/apt/sources.list.d/$(basename -- "$f")"; done
+for f in "${rootdir}"/config/archives/*.key; do cp -- "$f" "ubuntusway-$architecture/etc/apt/trusted.gpg.d/$(basename -- "$f").asc"; done
+for f in "${rootdir}"/config/archives/*.pref; do cp -- "$f" "ubuntusway-$architecture/etc/apt/preferences.d/$(basename -- "$f")"; done
 
-    # Configure repos with proper channel and codename
-    if [[ -d rpi-rootfs/etc/apt/sources.list.d ]]; then
-        sed -i "s/@CHANNEL/$CHANNEL/g" rpi-rootfs/etc/apt/sources.list.d/*.list* 2>/dev/null || true
-        sed -i "s/@BASECODENAME/$CODENAME/g" rpi-rootfs/etc/apt/sources.list.d/*.list* 2>/dev/null || true
-    fi
+# Set codename/channel in added repos
+sed -i "s/@CHANNEL/$channel/" ubuntusway-$architecture/etc/apt/sources.list.d/*.list*
+sed -i "s/@BASECODENAME/$codename/" ubuntusway-$architecture/etc/apt/sources.list.d/*.list*
 
-    if [[ -d rpi-rootfs/etc/apt/preferences.d ]]; then
-        sed -i "s/@BASECODENAME/$CODENAME/g" rpi-rootfs/etc/apt/preferences.d/*.pref* 2>/dev/null || true
-    fi
+# Set codename in added preferences
+sed -i "s/@BASECODENAME/$codename/" ubuntusway-$architecture/etc/apt/preferences.d/*.pref*
 
-    # Configure hostname
-    echo "ubuntusway" > rpi-rootfs/etc/hostname
+echo "ubuntusway" > ubuntusway-$architecture/etc/hostname
 
-    # Configure hosts
-    cat << EOF > rpi-rootfs/etc/hosts
+cat << EOF > ubuntusway-${architecture}/etc/hosts
 127.0.0.1       ubuntu-sway    localhost
 ::1             localhost ip6-localhost ip6-loopback
 fe00::0         ip6-localnet
@@ -145,89 +101,113 @@ ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 EOF
 
-    # Configure fstab
-    cat << EOF > rpi-rootfs/etc/fstab
+# Configure mount points
+cat << EOF > ubuntusway-${architecture}/etc/fstab
 # <file system> <mount point>   <type>  <options>       <dump>  <pass>
 LABEL=writable     /               ext4  discard,noatime,x-systemd.growfs     0  1
 LABEL=system-boot  /boot/firmware  vfat  defaults                             0  1
 EOF
 
-    # Set environment variables for systemd-nspawn
-    export LC_ALL=C.UTF-8
-    export DEBIAN_FRONTEND=noninteractive
-    export FK_MACHINE=none
-}
+export LC_ALL=C.UTF-8
+export DEBIAN_FRONTEND=noninteractive
+# Config to stop flash-kernel trying to detect the hardware in chroot
+export FK_MACHINE=none
 
-install_packages() {
-    section_header "INSTALL DESKTOP PACKAGES"
+mount -t proc proc ubuntusway-$architecture/proc
+mount -o bind /dev/ ubuntusway-$architecture/dev/
+mount -o bind /dev/pts ubuntusway-$architecture/dev/pts
 
-    # Install desktop packages - direct commands instead of temporary script
-    run_in_container_bash "
-        apt-get update
-        apt-get -y upgrade
-        apt-get -y install ubuntu-sway-minimal ubuntu-sway-desktop-raspi ubuntu-sway-standard
-    " || die "Desktop package installation failed"
+# Make a desktop stage that installs all of the metapackages
+echo -e "
+#--------------------------#
+# INSTALL DESKTOP PACKAGES #
+#--------------------------#
+"
 
-    section_header "INSTALL RASPBERRY PI SPECIFIC PACKAGES"
+cat << EOF > ubuntusway-$architecture/desktop
+#!/bin/bash
+apt-get update
+apt-get -y upgrade
+apt-get -y install $packages
+rm -f /desktop
+EOF
 
-    # Install RPi specific packages
-    run_in_container_bash "
-        apt-get -y install linux-image-raspi linux-firmware-raspi \
-            pi-bluetooth upower calamares-settings-ubuntu-sway-raspi
-        apt-get -y install --no-install-recommends raspi-config
-    " || die "RPi hardware packages installation failed"
+chmod +x ubuntusway-$architecture/desktop
+LANG=C.UTF-8 chroot ubuntusway-$architecture /desktop
 
-    # Copy file overrides
-    if [[ -d "${ROOT_DIR}"/config/includes.chroot ]]; then
-        [[ -d "${ROOT_DIR}"/config/includes.chroot/etc/apt ]] && \
-            cp -rv "${ROOT_DIR}"/config/includes.chroot/etc/apt/ rpi-rootfs/etc/
-        [[ -d "${ROOT_DIR}"/config/includes.chroot/etc/netplan ]] && \
-            cp -rv "${ROOT_DIR}"/config/includes.chroot/etc/netplan/ rpi-rootfs/etc/
-        [[ -d "${ROOT_DIR}"/config/includes.chroot/usr ]] && \
-            cp -rv "${ROOT_DIR}"/config/includes.chroot/usr rpi-rootfs/
-    fi
+# Install Raspberry Pi specific packages
+echo -e "
+#----------------------------------------#
+# INSTALL RASPBERRY PI SPECIFIC PACKAGES #
+#----------------------------------------#
+"
 
-    [[ -d "${ROOT_DIR}"/rpi/greetd ]] && \
-        cp -rv "${ROOT_DIR}"/rpi/greetd/* rpi-rootfs/etc/greetd/ || true
-}
+cat << EOF > ubuntusway-$architecture/hardware
+#!/bin/bash
+apt-get -y install linux-image-raspi linux-firmware-raspi \
+pi-bluetooth upower \
+calamares-settings-ubuntu-sway-raspi
+apt-get -y install --no-install-recommends raspi-config
+rm -f hardware
+EOF
 
-post_install() {
-    section_header "RUNNING HOOKS"
+chmod +x ubuntusway-$architecture/hardware
+LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
-    # Run live hooks
-    if [[ -d "${ROOT_DIR}"/config/hooks/live ]]; then
-        mkdir -p rpi-rootfs/hooks
-        cp -v "${ROOT_DIR}"/config/hooks/live/*.chroot rpi-rootfs/hooks/ 2>/dev/null || true
+# Copy in any file overrides
+cp -rv "${rootdir}"/config/includes.chroot/etc/apt/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/config/includes.chroot/etc/netplan/ ubuntusway-$architecture/etc/
+cp -rv "${rootdir}"/config/includes.chroot/usr ubuntusway-$architecture/
+cp -rv "${rootdir}"/rpi/greetd/* ubuntusway-${architecture}/etc/greetd/
 
-        for f in rpi-rootfs/hooks/*; do
-            if [[ -f "$f" ]]; then
-                local base
-                base=$(basename "${f}")
-                run_in_container "/hooks/${base}" || die "Hook ${base} failed"
-            fi
-        done
+echo -e "
+#----------------------#
+# RUNNING HOOKS        #
+#----------------------#
+"
 
-        rm -rf rpi-rootfs/hooks
-    fi
+mkdir ubuntusway-$architecture/hooks
+cp -v "${rootdir}"/config/hooks/live/*.chroot ubuntusway-$architecture/hooks
 
-    section_header "CREATING OEM USER"
+hook_files="ubuntusway-$architecture/hooks/*"
+for f in $hook_files
+do
+    base=$(basename "${f}")
+    LANG=C.UTF-8 chroot ubuntusway-$architecture "/hooks/${base}"
+done
 
-    # Create OEM user - direct commands
-    run_in_container_bash "
-        DATE=\$(date +%m%H%M%S)
-        PASSWD=\$(mkpasswd -m sha-512 oem \"\${DATE}\")
-        addgroup --gid 29999 oem
-        adduser --gecos 'OEM Configuration (temporary user)' \
-            --add_extra_groups --disabled-password --gid 29999 --uid 29999 oem
-        usermod -a -G adm,sudo -p \"\${PASSWD}\" oem
-    " || die "OEM user creation failed"
+rm -r "ubuntusway-$architecture/hooks"
 
-    section_header "CREATING SWAPFILE"
+# Create OEM user
+echo -e "
+#----------------------#
+# CREATING OEM USER    #
+#----------------------#
+"
 
-    # Create swapfile service - write files directly
-    mkdir -p rpi-rootfs/usr/lib/systemd/system/swap.target.wants
+cat <<EOF >> ubuntusway-$architecture/user
+#!/bin/bash
+DATE=$(date +%m%H%M%S)
+PASSWD=$(mkpasswd -m sha-512 oem "${DATE}")
+addgroup --gid 29999 oem
+adduser --gecos "OEM Configuration (temporary user)" --add_extra_groups --disabled-password --gid 29999 --uid 29999 oem
+usermod -a -G adm,sudo -p "${PASSWD}" oem
+rm -f user
+EOF
 
-    cat << 'EOF' > rpi-rootfs/usr/lib/systemd/system/mkswap.service
+chmod +x ubuntusway-$architecture/user
+LANG=C.UTF-8 chroot ubuntusway-$architecture /user
+
+# Creating swapfile service
+echo -e "
+#----------------------#
+# CREATING SWAPFILE    #
+#----------------------#
+"
+
+mkdir -p ubuntusway-$architecture/usr/lib/systemd/system/swap.target.wants
+
+cat <<EOF >> ubuntusway-$architecture/usr/lib/systemd/system/mkswap.service
 [Unit]
 Description=Create the default swapfile
 DefaultDependencies=no
@@ -235,213 +215,163 @@ Requires=local-fs.target
 After=local-fs.target
 Before=swapfile.swap
 ConditionPathExists=!/swapfile
-
 [Service]
 Type=oneshot
 ExecStartPre=fallocate -l 1GiB /swapfile
 ExecStartPre=chmod 600 /swapfile
 ExecStart=mkswap /swapfile
-
 [Install]
 WantedBy=swap.target
 EOF
 
-    cat << 'EOF' > rpi-rootfs/usr/lib/systemd/system/swapfile.swap
+cat <<EOF >> ubuntusway-$architecture/usr/lib/systemd/system/swapfile.swap
 [Unit]
 Description=The default swapfile
-
 [Swap]
 What=/swapfile
 EOF
 
-    # Enable swap service - direct command
-    run_in_container_bash "
-        ln -s /usr/lib/systemd/system/mkswap.service /usr/lib/systemd/system/swap.target.wants/mkswap.service
-        ln -s /usr/lib/systemd/system/swapfile.swap /usr/lib/systemd/system/swap.target.wants/swapfile.swap
-        update-initramfs -u
-    " || die "Swap setup failed"
-}
+cat <<EOF >> ubuntusway-$architecture/enable_zswap
+#!/bin/bash
+ln -s /usr/lib/systemd/system/mkswap.service /usr/lib/systemd/system/swap.target.wants/mkswap.service
+ln -s /usr/lib/systemd/system/swapfile.swap /usr/lib/systemd/system/swap.target.wants/swapfile.swap
+update-initramfs -u
+rm -f enable_zswap
+EOF
 
-post_cleanup() {
-    section_header "CLEANING CHROOT"
+chmod +x ubuntusway-$architecture/enable_zswap
+LANG=C.UTF-8 chroot ubuntusway-$architecture /enable_zswap
 
-    # Cleanup - direct commands instead of temporary script
-    run_in_container_bash "
-        apt-get -y autoremove
-        apt-get -y autoclean
-        apt-get -y clean
+# Cleanup chroot before creating .img
+echo -e "
+#----------------------#
+# CLEANING CHROOT      #
+#----------------------#
+"
 
-        rm -rf {*.bak,*.old}
-        rm -rf wget-log
-        rm -rf /boot/{*.bak,*.old}
-        rm -rf /etc/ssh/ssh_host_*_key*
-        rm -rf /etc/apt/*.save
-        rm -rf /etc/apt/apt.conf.d/90cache
-        rm -rf /etc/apt/sources.list.d/*.save
-        rm -rf /root/.wget-hsts
-        rm -rf /tmp/*
-        rm -rf /var/log/apt/*
-        rm -rf /var/log/alternatives.log
-        rm -rf /var/log/bootstrap.log
-        rm -rf /var/log/dpkg.log
-        rm -rf /var/log/fontconfig.log
-        rm -rf /var/cache/fontconfig/CACHEDIR.TAG
-        rm -rf /var/crash/*
-        rm -rf /var/lib/apt/lists/*
-        rm -rf /var/lib/dpkg/*-old
+cat <<EOF >> ubuntusway-$architecture/cleanup
+#!/bin/bash
 
-        [ -L /var/lib/dbus/machine-id ] || rm -f /var/lib/dbus/machine-id
-        echo '' > /etc/machine-id
-    " || die "Cleanup failed"
-}
+apt-get -y autoremove
+apt-get -y autoclean
+apt-get -y clean
 
-create_image() {
-    section_header "CREATING IMAGE FILE"
+rm -rf {*.bak,*.old}
+rm -rf wget-log
+rm -rf /boot/{*.bak,*.old}
+rm -rf /etc/ssh/ssh_host_*_key*
+rm -rf /etc/apt/*.save
+rm -rf /etc/apt/apt.conf.d/90cache
+rm -rf /etc/apt/sources.list.d/*.save
+rm -rf /root/.wget-hsts
+rm -rf /tmp/*
+rm -rf /var/log/apt/*
+rm -rf /var/log/alternatives.log
+rm -rf /var/log/bootstrap.log
+rm -rf /var/log/dpkg.log
+rm -rf /var/log/fontconfig.log
+rm -rf /var/cache/fontconfig/CACHEDIR.TAG
+rm -rf /var/crash/*
+rm -rf /var/lib/apt/lists/*
+rm -rf /var/lib/dpkg/*-old
 
-    local timestamp
-    timestamp="$(date +%Y%m%d)"
-    local imagename
+[ -L /var/lib/dbus/machine-id ] || rm -f /var/lib/dbus/machine-id
+echo '' > /etc/machine-id
 
-    case "$RELEASE" in
-        testing)
-            imagename="ubuntusway-$VERSION-$CHANNEL-rpi-$timestamp"
-            ;;
-        beta)
-            imagename="ubuntusway-$VERSION-beta-rpi"
-            ;;
-        stable)
-            imagename="ubuntusway-$VERSION-$CHANNEL-rpi"
-            ;;
-    esac
+rm -f cleanup
+EOF
 
-    # Calculate image size
-    local boot_size="256"
-    local root_size
-    root_size="$(du -cs --block-size=MB rpi-rootfs 2>/dev/null | tail -n1 | cut -d'M' -f1)"
-    local pad_size="$(( (root_size / 10) / 2 ))"
-    local raw_size="$((boot_size + root_size + pad_size))"
+chmod +x ubuntusway-$architecture/cleanup
+LANG=C.UTF-8 chroot ubuntusway-$architecture /cleanup
 
-    # Create and partition disk image
-    fallocate -l "${raw_size}"M "${BASE_DIR}/${imagename}.img" || die "Failed to create image file"
+echo -e "
+#----------------------#
+# CREATING IMAGE FILE  #
+#----------------------#
+"
 
-    cd "${BASE_DIR}" || die "Failed to enter BASE_DIR"
+# Calculate image size accounting for boot parition + 5%
+boot_size="256"
+root_size="$(du -cs --block-size=MB ubuntusway-$architecture | tail -n1 | cut -d'M' -f1)"
+pad_size="$(( (root_size / 10) / 2 ))"
+raw_size="$((boot_size + root_size + pad_size))"
 
-    parted "${imagename}.img" -s -- mklabel msdos
-    parted "${imagename}.img" -s -a optimal -- mkpart primary fat32 1 "${boot_size}MB"
-    parted "${imagename}.img" -s -a optimal -- mkpart primary ext4 "${boot_size}MB" 100%
-    parted "${imagename}.img" -s set 1 boot on
+# Create the disk and partition it
+fallocate -l "${raw_size}"M "${basedir}/${imagename}.img"
 
-    # Set up loop devices
-    local loopdevice
-    loopdevice=$(losetup -f --show "${BASE_DIR}/${imagename}.img") || die "Failed to setup loop device"
-    local device
-    device=$(kpartx -va "$loopdevice" | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
-    device="/dev/mapper/${device}"
-    local bootp="${device}p1"
-    local rootp="${device}p2"
+parted "${imagename}.img" -s -- mklabel msdos
+parted "${imagename}.img" -s -a optimal -- mkpart primary fat32 1 "${boot_size}MB"
+parted "${imagename}.img" -s -a optimal -- mkpart primary ext4 "${boot_size}MB" 100%
+parted "${imagename}.img" -s set 1 boot on
 
-    # Create filesystems
-    mkfs.vfat -n system-boot -S 512 -s 16 -v "$bootp" || die "Failed to create vfat filesystem"
-    mkfs.ext4 -L writable -m 0 "$rootp" || die "Failed to create ext4 filesystem"
+# Set the partition variables
+loopdevice=$(losetup -f --show "${basedir}/${imagename}.img")
+device=$(kpartx -va "$loopdevice" | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
+device="/dev/mapper/${device}"
+bootp=${device}p1
+rootp=${device}p2
 
-    # Mount partitions
-    mkdir -p "${BASE_DIR}/bootp" "${BASE_DIR}/root"
-    mount -t vfat "$bootp" "${BASE_DIR}/bootp" || die "Failed to mount boot partition"
-    mount "$rootp" "${BASE_DIR}/root" || die "Failed to mount root partition"
+# Create file systems
+mkfs.vfat -n system-boot -S 512 -s 16 -v "$bootp"
+mkfs.ext4 -L writable -m 0 "$rootp"
 
-    mkdir -p rpi-rootfs/boot/firmware
-    mount -o bind "${BASE_DIR}/bootp/" rpi-rootfs/boot/firmware || die "Failed to bind mount firmware"
+# Create the dirs for the partitions and mount them
+mkdir -p "${basedir}/bootp" "${basedir}/root"
+mount -t vfat "$bootp" "${basedir}/bootp"
+mount "$rootp" "${basedir}/root"
 
-    # Copy RPi boot files
-    if [[ -d "${ROOT_DIR}"/rpi/rootfs/system-boot ]]; then
-        cp -rv "${ROOT_DIR}"/rpi/rootfs/system-boot/* rpi-rootfs/boot/firmware/ || die "Failed to copy boot files"
+mkdir -p ubuntusway-$architecture/boot/firmware
+mount -o bind "${basedir}/bootp/" ubuntusway-$architecture/boot/firmware
+
+# Copy Raspberry Pi specific files
+cp -rv "${rootdir}"/rpi/rootfs/system-boot/* ubuntusway-${architecture}/boot/firmware/
+
+NEW_KERNEL=$(find ubuntusway-$architecture/boot/vmlinuz-* | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
+    if [ -z "${NEW_KERNEL}" ]; then
+        echo "ERROR! Could not detect the new kernel version"
+        exit 1
     fi
+echo "Kernel: ${NEW_KERNEL}"
 
-    # Detect kernel version
-    local new_kernel
-    new_kernel=$(find rpi-rootfs/boot/vmlinuz-* 2>/dev/null | tail -n1 | awk -F/ '{print $NF}' | cut -d'-' -f2-4)
-    if [[ -z "${new_kernel}" ]]; then
-        die "Could not detect the new kernel version"
-    fi
-    echo "Kernel: ${new_kernel}"
+# Copy kernels and firmware to boot partition
+cat << EOF > ubuntusway-$architecture/hardware
+#!/bin/bash
+cp -av /boot/vmlinuz-${NEW_KERNEL} /boot/firmware/vmlinuz
+cp -av /boot/initrd.img-${NEW_KERNEL} /boot/firmware/initrd.img
+# Copy device-tree blobs to fat32 partition
+cp -v /lib/firmware/${NEW_KERNEL}/device-tree/broadcom/* /boot/firmware/
+cp -rv /lib/firmware/${NEW_KERNEL}/device-tree/overlays /boot/firmware/
+cp -v /lib/linux-firmware-raspi/* /boot/firmware/
+rm -f hardware
+EOF
 
-    # Copy kernels and firmware - direct commands instead of temporary script
-    run_in_container_bash "
-        cp -av /boot/vmlinuz-${new_kernel} /boot/firmware/vmlinuz
-        cp -av /boot/initrd.img-${new_kernel} /boot/firmware/initrd.img
-        cp -v /lib/firmware/${new_kernel}/device-tree/broadcom/* /boot/firmware/ 2>/dev/null || true
-        cp -rv /lib/firmware/${new_kernel}/device-tree/overlays /boot/firmware/ 2>/dev/null || true
-        cp -v /lib/linux-firmware-raspi/* /boot/firmware/ 2>/dev/null || true
-    " || die "Kernel copy failed"
+chmod +x ubuntusway-$architecture/hardware
+LANG=C.UTF-8 chroot ubuntusway-$architecture /hardware
 
-    # Unmount temporary mounts (systemd-nspawn handled its own mounts, we only unmount what we mounted)
-    umount rpi-rootfs/boot/firmware 2>/dev/null || true
+umount ubuntusway-$architecture/dev/pts
+umount ubuntusway-$architecture/dev/
+umount ubuntusway-$architecture/proc
+umount ubuntusway-$architecture/boot/firmware
 
-    # Sync rootfs to image
-    echo "Rsyncing rootfs into image file"
-    rsync -HPavz -q "${BASE_DIR}/rpi-rootfs/" "${BASE_DIR}/root/" || die "Rsync failed"
+echo "Rsyncing rootfs into image file"
+rsync -HPavz -q "${basedir}/ubuntusway-$architecture/" "${basedir}/root/"
 
-    # Cleanup mounts
-    umount "$bootp" || die "Failed to unmount bootp"
-    umount "$rootp" || die "Failed to unmount rootp"
-    kpartx -dv "$loopdevice" || true
-    losetup -d "$loopdevice" || true
+# Unmount partitions
+umount "$bootp"
+umount "$rootp"
+kpartx -dv "$loopdevice"
+losetup -d "$loopdevice"
 
-    # Compress image
-    echo "Compressing ${imagename}.img"
-    xz -T0 -z "${BASE_DIR}/${imagename}.img" || die "Compression failed"
+echo "Compressing ${imagename}.img"
+xz -T0 -z "${basedir}/${imagename}.img"
 
-    cd "${BASE_DIR}" || die "Failed to enter BASE_DIR"
+cd "${basedir}"
 
-    # Generate checksums
-    md5sum "${imagename}.img.xz" | tee "${imagename}.md5.txt"
-    sha256sum "${imagename}.img.xz" | tee "${imagename}.sha256.txt"
-}
+md5sum "${imagename}.img.xz" | tee "${imagename}.md5.txt"
+sha256sum "${imagename}.img.xz" | tee "${imagename}.sha256.txt"
 
-main() {
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --release)
-                [[ -n "${2:-}" ]] || die "--release requires an argument"
-                RELEASE="$2"
-                shift 2
-                ;;
-            --help)
-                show_help
-                ;;
-            *)
-                die "Unknown option: $1"
-                ;;
-        esac
-    done
-
-    # Validate required arguments
-    [[ -n "$RELEASE" ]] || die "--release is required"
-    validate_release "$RELEASE" || die "Invalid value for --release: $RELEASE (must be stable, beta, or testing)"
-
-    # Check permissions
-    [[ "$(id -u)" == 0 ]] || die "This script requires root permissions"
-
-    # Load config
-    [[ -f "$ROOT_DIR/$CONFIG_FILE" ]] || die "Config file not found: $CONFIG_FILE"
-    # shellcheck source=/dev/null
-    source "$ROOT_DIR/$CONFIG_FILE"
-
-    # Set channel based on release
-    set_channel
-
-    # Execute build pipeline
-    check_deps
-    pre_cleanup
-    bootstrap
-    install_packages
-    post_install
-    post_cleanup
-    create_image
-
-    section_header "BUILD DONE"
-}
-
-# Run main function
-main "$@"
+echo -e "
+#----------------------#
+# BUILD DONE           #
+#----------------------#
+"

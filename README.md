@@ -26,7 +26,11 @@ See `build --help` for available options.
 
 Build Raspberry Pi image:
 
-        ./build-rpi --release stable
+        docker run --privileged -i -v /proc:/proc \
+        -v ${PWD}:/working_dir \
+        -w /working_dir \
+        ubuntu:24.04 \
+        ./build-rpi
 
 
 When done, your image will be in the `builds` folder. The Raspberry Pi images will be placed in `artifacts` folder.
