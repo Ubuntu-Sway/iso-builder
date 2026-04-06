@@ -91,7 +91,6 @@ configure_lb() {
         --architectures "$ARCH" \
         --mode debian \
         --initramfs none \
-        --bootloaders grub-efi \
         --distribution "$BASECODENAME" \
         --parent-distribution "$BASECODENAME" \
         --archive-areas "main restricted universe multiverse" \
