@@ -86,7 +86,7 @@ check_deps() {
     fi
 
     if [[ "$ARCH" == "arm64" ]]; then
-        apt install -y qemu-user-static binfmt-support || die "Failed to install ARM64 dependencies"
+        apt install -y --no-install-recommends qemu-user-static qemu-system-arm binfmt-support || die "Failed to install ARM64 dependencies"
         update-binfmts --enable
     fi
 }

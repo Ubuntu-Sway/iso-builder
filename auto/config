@@ -44,8 +44,10 @@ detect_host_arch() {
     echo "Host architecture: $host_arch"
 
     # Use qemu emulation if building on x86_64 host for arm64 target
-    if [[ "$host_arch" == "amd64" ]] && [[ "$ARCH" == "arm64" ]]; then
-        OPTS="--bootstrap-qemu-arch arm64 --bootstrap-qemu-static '/usr/bin/qemu-aarch64-static'"
+    if [[ "$host_arch" == "x86_64" ]] && [[ "$ARCH" == "arm64" ]]; then
+        OPTS=(
+          --bootstrap-qemu-arch arm64
+          --bootstrap-qemu-static /usr/bin/qemu-arm64-static)
         echo "QEMU emulation enabled for ARM64 build"
     else
         echo "Native build (no QEMU emulation needed)"
@@ -100,7 +102,7 @@ configure_lb() {
         --security true \
         --updates true \
         --debootstrap-options="--extractor=ar --include=lsb-release --verbose" \
-        "$OPTS" \
+        "${OPTS[@]}" \
         "$@" || die "lb config failed"
 
     echo "Live-build configuration completed"
