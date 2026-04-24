@@ -28,7 +28,7 @@ load_config() {
 
     # Validate required variables
     local required_vars=("ARCH" "BASEVERSION" "BASECODENAME" "CODENAME"
-                        "HWE" "NAME" "VERSION" "CHANNEL")
+                        "HWE" "NAME" "VERSION" "CHANNEL" "MIRROR_URL")
     for var in "${required_vars[@]}"; do
         if [[ -z "${!var:-}" ]]; then
             die "Required variable '$var' is not set in $CONFIG_FILE"
@@ -63,27 +63,6 @@ set_kernel_flavors() {
     echo "Kernel flavors: $KERNEL_FLAVORS"
 }
 
-set_mirrors() {
-    # Set mirror URLs based on architecture
-    case "$ARCH" in
-        amd64)
-            MIRROR_URL="http://archive.ubuntu.com/ubuntu/"
-            MIRROR_BINARY_URL="http://archive.ubuntu.com/ubuntu/"
-            MIRROR_BINARY_SECURITY_URL="http://security.ubuntu.com/ubuntu/"
-            ;;
-        arm64)
-            MIRROR_URL="http://ports.ubuntu.com/ubuntu-ports/"
-            MIRROR_BINARY_URL="http://ports.ubuntu.com/ubuntu-ports/"
-            MIRROR_BINARY_SECURITY_URL="http://ports.ubuntu.com/ubuntu-ports/"
-            ;;
-        *)
-            die "Unsupported architecture: $ARCH (must be amd64 or arm64)"
-            ;;
-    esac
-
-    echo "Using mirrors for $ARCH"
-}
-
 configure_lb() {
     section_header "LIVE-BUILD CONFIGURATION"
 
@@ -100,13 +79,13 @@ configure_lb() {
         --bootappend-live "boot=casper username=ubuntu-sway hostname=ubuntu-sway quiet splash" \
         --mirror-bootstrap "$MIRROR_URL" \
         --parent-mirror-bootstrap "$MIRROR_URL" \
-        --mirror-chroot-security "$MIRROR_BINARY_SECURITY_URL" \
-        --parent-mirror-chroot-security "$MIRROR_BINARY_SECURITY_URL" \
-        --mirror-binary-security "$MIRROR_BINARY_SECURITY_URL" \
-        --parent-mirror-binary-security "$MIRROR_BINARY_SECURITY_URL" \
+        --mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
+        --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu/" \
+        --mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
+        --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu/" \
         --apt-source-archives false \
-        --mirror-binary "$MIRROR_BINARY_URL" \
-        --parent-mirror-binary "$MIRROR_BINARY_URL" \
+        --mirror-binary "$MIRROR_URL" \
+        --parent-mirror-binary "$MIRROR_URL" \
         --keyring-packages ubuntu-keyring \
         --apt-options "--yes --option Acquire::Retries=5 --option Acquire::http::Timeout=100" \
         --cache-packages false \
@@ -186,7 +165,6 @@ main() {
     # Setup build environment
     detect_host_arch
     set_kernel_flavors
-    set_mirrors
 
     # Configure live-build
     configure_lb "$@"
