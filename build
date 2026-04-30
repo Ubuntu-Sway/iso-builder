@@ -78,15 +78,15 @@ check_deps() {
     dist="$(lsb_release -i -s)"
 
     if [[ "$dist" == "Debian" ]]; then
-        apt install -y binutils patch zstd live-build || die "Failed to install build dependencies"
+        apt install -y binutils zstd live-build || die "Failed to install build dependencies"
         apt install -y ./debs/ubuntu-keyring*.deb || die "Failed to install ubuntu-keyring"
     else
-        apt install -y binutils patch zstd debootstrap || die "Failed to install build dependencies"
+        apt install -y binutils zstd debootstrap || die "Failed to install build dependencies"
         apt install -y ./debs/*.deb || die "Failed to install local packages"
     fi
 
     if [[ "$ARCH" == "arm64" ]]; then
-        apt install -y --no-install-recommends qemu-user-static qemu-system-arm binfmt-support || die "Failed to install ARM64 dependencies"
+        apt install -y --no-install-recommends qemu-user-binfmt qemu-system-arm binfmt-support || die "Failed to install ARM64 dependencies"
         update-binfmts --enable
     fi
 }
